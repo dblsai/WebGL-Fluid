@@ -5,37 +5,57 @@
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
 
-<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="glMatrix-0.9.5.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script type="text/javascript" src="main.js"></script>
 <script type="text/javascript" src="cubePool.js"></script>
 <script type="text/javascript" src="cubeSky.js"></script>
+<script type="text/javascript" src ="planeWater.js"></script>
 
 <script id="pool-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
     attribute vec2 aTextureCoord;
+    attribute vec3 aVertexNormal;
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
 
     varying vec2 vTextureCoord;
-
+    varying vec3 vVertexPosition;
+    varying vec3 vVertexNormal;
 
     void main(void) {
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vVertexPosition =  aVertexPosition;
+  
         vTextureCoord = aTextureCoord;
+        vVertexNormal = aVertexNormal;
     }
+
 </script>
 
 <script id="pool-fs" type="x-shader/x-fragment">
     precision mediump float;
 
     varying vec2 vTextureCoord;
+    varying vec3 vVertexPosition;
+    varying vec3 vVertexNormal;
 
-    uniform sampler2D uSampler;
+    uniform sampler2D uSamplerTile;
+   // uniform float waterHeight;
 
     void main(void) {
-        gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        float waterHeight = 0.6;
+        vec3 lightDir = vec3(0.5,1.2,0.3);
+        float lightIntensity = 1.4;
+        float diffuseTerm = clamp(abs(dot(normalize(lightDir), normalize(vVertexNormal) )), 0.0, 1.0);
+        vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
+        vec3 color = texture2D(uSamplerTile, vTextureCoord.st).rgb;
+        if(vVertexPosition.y < waterHeight){
+            color *= underwaterColor;
+        }
+       // gl_FragColor = vec4( abs(vVertexNormal),1.0);
+        gl_FragColor = vec4(lightIntensity*diffuseTerm*color,1.0);
     }
 </script>
 
@@ -48,28 +68,75 @@
     uniform mat4 uPMatrix;
 
    // varying vec2 vTextureCoord;
-    varying vec3 vCoord;
+    varying vec3 vVertexPosition;
 
     void main(void) {
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
        // vTextureCoord = aTextureCoord;
-        vCoord = aVertexPosition;
+        vVertexPosition = aVertexPosition;
     }
 </script>
 
 <script id="sky-fs" type="x-shader/x-fragment">
     precision mediump float;
 
-    uniform samplerCube uSampler;
+    uniform samplerCube uSamplerSky;
     //varying vec2 vTextureCoord;
-    varying vec3 vCoord;
+    varying vec3 vVertexPosition;
 
     void main(void) {
-         gl_FragColor = textureCube(uSampler, vCoord);
+         gl_FragColor = textureCube(uSamplerSky, vVertexPosition);
         //gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
     }
 </script>
 
+<script id="water-vs" type="x-shader/x-vertex">
+
+    attribute vec3 aVertexPosition;
+    //attribute vec2 aTextureCoord;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat4 uNmlMatrix;  //for normal transformations
+
+    varying vec3 vVertexPosition;
+    varying vec3 vVertexNormal;
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vVertexNormal = (uNmlMatrix * vec4(aVertexNormal,0.0)).xyz;
+      //  vVertexPosition = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+      vVertexPosition = gl_Position.xyz;
+    }
+
+</script>
+
+<script id="water-fs" type="x-shader/x-fragment">
+ precision mediump float;
+    uniform samplerCube uSamplerSky;   //top water reflects skybox
+    uniform vec3 uEyePosition;
+
+    varying vec3 vVertexPosition;
+    varying vec3 vVertexNormal;
+
+    void main(void) {
+          const float IOR_AIR = 1.0;
+  const float IOR_WATER = 1.333;
+        vec3 normal = normalize(vVertexNormal);
+        vec3 eyeDir = normalize(vVertexPosition - vec3(0.0, 0.0, -5.0));
+        vec3 reflectDir = reflect(-eyeDir,normal);
+        float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0));
+        vec3 refractedDir = refract(eyeDir, normal, IOR_AIR / IOR_WATER);
+
+       vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
+       vec3 abovewaterColor = vec3(0.25, 1.0, 1.25);
+       vec3 color = textureCube(uSamplerSky, reflectDir).rgb;
+       color *= abovewaterColor;
+       gl_FragColor = vec4(color,1.0);
+   
+    }
+
+</script>
 
 </head> 
 

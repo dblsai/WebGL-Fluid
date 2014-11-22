@@ -1,6 +1,6 @@
+
 var cubeSky ={
  
-
     vertices: [
             // Front face
             -20.0, -20.0,  20.0,
