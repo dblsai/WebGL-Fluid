@@ -31,9 +31,9 @@
 	   		var t = y / detailY;
 	   		for (var x = 0; x <= detailX; x++) {
 		      var s = x / detailX;
-		      plane.vertices[vertexPtr++] = 2 * s - 1;
+		      plane.vertices[vertexPtr++] = 2 * s - 1.0;
 		      plane.vertices[vertexPtr++] = waterHeight;
-		      plane.vertices[vertexPtr++] = 2 * t - 1;
+		      plane.vertices[vertexPtr++] = 2 * t - 1.0;
 
 		      plane.texcoords[texcoordPtr++] = s;
 		      plane.texcoords[texcoordPtr++] = t;
