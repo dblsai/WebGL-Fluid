@@ -1,6 +1,7 @@
 
 
     var gl;
+    var tracer = {};
 
    // shader programs
     var poolProg;
@@ -13,7 +14,18 @@
     var mvMatrixStack = [];
     var pMatrix = mat4.create();
     var nmlMatrix = mat4.create();
-    var eyePos = [0.0,0.0,0.0];
+    var eyePos;
+    var radius = 4.0;
+    //var azimuth = 0.5*Math.PI;
+    var azimuth = 0.0;
+    var elevation = 0.0;
+    var eye = sphericalToCartesian(radius, azimuth, elevation);
+    var center = [0.0, 0.0, 0.0];
+    var up = [0.0, 1.0, 0.0];
+    var view = mat4.create();
+    mat4.lookAt(eye, center, up, view);
+
+  
 
     // animating 
     var lastTime = 0;
@@ -21,16 +33,26 @@
     var yRot = 0;
     var zRot = 0;
 
+    //mouse interaction
     var time = 0;
     var mouseLeftDown = false;
     var mouseRightDown = false;
     var lastMouseX = null;
     var lastMouseY = null;
 
+
     var pool = {};    //a cube without top plane
     var sky = {};    //a cube
     var water = {};   //a plane
 
+
+ function sphericalToCartesian( r, a, e ) {
+        var x = r * Math.cos(e) * Math.cos(a);
+        var y = r * Math.sin(e);
+        var z = r * Math.cos(e) * Math.sin(a);
+
+        return [x,y,z];
+    }
 
     function initGL(canvas) {
         try {
@@ -289,6 +311,51 @@
     }
 
 
+   /* function handleMouseDown(event) {
+        if( event.button == 2 ) {   //right mouse click
+            mouseLeftDown = false;
+            mouseRightDown = true;
+        } 
+        else {    //left button click
+            mouseLeftDown = true;
+            mouseRightDown = false;
+
+            startInteraction(event.clientX, event.clientY);
+        }
+        lastMouseX = event.clientX;
+        lastMouseY = event.clientY;
+    }
+
+    function handleMouseUp(event) {
+        mouseLeftDown = false;
+        mouseRightDown = false;
+    }
+
+    function handleMouseMove(event) {   //drag
+        if (!(mouseLeftDown || mouseRightDown)) {
+            return;
+        }
+        var newX = event.clientX;
+        var newY = event.clientY;
+
+        var deltaX = newX - lastMouseX;
+        var deltaY = newY - lastMouseY;
+        
+        if( mouseLeftDown ){  // left mouse button  ---> interaction  
+            //startInteraction(event.clientX, event.clientY);
+ 
+        }
+        else{   //right mouse button   ---> rotation
+            xRot +=  deltaY;
+            yRot += deltaX;
+        }
+
+
+        lastMouseX = newX;
+        lastMouseY = newY;
+    }
+*/
+
 
 
     function handleMouseDown(event) {
@@ -299,6 +366,7 @@
         else {
             mouseLeftDown = true;
             mouseRightDown = false;
+            startInteraction(event.clientX, event.clientY);
         }
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
@@ -319,34 +387,65 @@
         var deltaX = newX - lastMouseX;
         var deltaY = newY - lastMouseY;
         
-        if( mouseLeftDown ){  // left mouse button  ---> interaction  
-        
- 
+        if( mouseLeftDown ) {
+            //radius += 0.01 * deltaY;
+            //radius = Math.min(Math.max(radius, 2.0), 10.0);
         }
-        else{   //right mouse button   ---> rotation
-            xRot +=  deltaY;
-            yRot += deltaX;
+        else {
+            azimuth += 0.01 * deltaX;
+            elevation += 0.01 * deltaY;
+            elevation = Math.min(Math.max(elevation, -Math.PI/2+0.001), Math.PI/2-0.001);
         }
-
+        eye = sphericalToCartesian(radius, azimuth, elevation);
+        view = mat4.create();
+        mat4.lookAt(eye, center, up, view);
 
         lastMouseX = newX;
         lastMouseY = newY;
     }
 
+    function startInteraction(x,y){
+        updateTracer();
+        var ray = vec3.create();
+        ray = rayEyeToPixel(x,y);
+        var scale = -tracer.eye[1] / ray[1];
+        var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
+   
+      //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
+      console.log("pixel= "+ x +"," +y +"   tracer.eye= " + vec3.str(tracer.eye)+"    ray= " + vec3.str(ray)+"    point= " +vec3.str(point));
+        if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
+        console.log("water plane hit");
+       // duringDrag(x, y);
+        }
+    }
+
     function drawScene() {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+       
         mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0.0, 0.0, -4.0]);
-
+        mat4.multiply(mvMatrix,view);
+      /*  mat4.translate(mvMatrix, [0.0, 0.0, -4.0]);
         mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
         mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
         mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
 
+        var xAxis = vec3.create( [mvMatrix[0], mvMatrix[4], mvMatrix[8]] );
+        var yAxis = vec3.create( [mvMatrix[1], mvMatrix[5], mvMatrix[9]] );
+        var zAxis = vec3.create( [mvMatrix[2], mvMatrix[6], mvMatrix[10]] );
+        var offset = vec3.create( [mvMatrix[3], mvMatrix[7], mvMatrix[11]] );
+        var xNew = vec3.dot(vec3.negate(offset),xAxis);
+        var yNew = vec3.dot(vec3.negate(offset),yAxis);
+        var zNew = vec3.dot(vec3.negate(offset),zAxis);
+       // console.log("offset: "+ vec3.str(vec3.negate(offset)));
+        //console.log("axis: "+ vec3.str(xAxis)+"," +vec3.str(yAxis)+","+vec3.str(zAxis) );
+        //console.log("eye pos calculation: "+ xNew+"," +yNew+","+zNew );
+        eyePos = vec3.create([xNew,yNew,zNew]);*/
+        
 
         mat4.inverse(mvMatrix,nmlMatrix);
         mat4.transpose(nmlMatrix,nmlMatrix);
+
 
         drawPool();
         drawSkyBox();
@@ -463,7 +562,60 @@ function drawWater(){
 
 }
 
+function updateTracer(){
+ // tracer.eye = vec3.create(eyePos);
+ tracer.eye = vec3.create(eye);
+ // console.log("eyePos = " + vec3.str(eyePos));
+ // console.log("tracer.eye = " + vec3.str(tracer.eye));
+  var v = gl.getParameter(gl.VIEWPORT);   //{0,0,canvas.width,canvas.height}
+  //var m = gl.modelviewMatrix.m;
+  var point00 = vec3.create( [v[0], v[1], 1] );  // {x,y,depth}
+  var point10 = vec3.create( [v[0]+v[2], v[1], 1] );
+  var point01 = vec3.create( [v[0], v[1]+v[3], 1] ); 
+  var point11 = vec3.create( [v[0]+v[2], v[1]+v[3], 1]);   
+  //console.log("viewport data: " +v[0] + "," + v[1] + "," + v[2] + "," + v[3]);
+  //console.log("point data: " + vec3.str(point00) + "," +  vec3.str(point10) + "," + vec3.str(point01) + "," + vec3.str(point11));
 
+  tracer.ray00 = vec3.unproject(point00, mvMatrix, pMatrix, v);
+ // vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
+
+  tracer.ray10 = vec3.unproject(point10, mvMatrix, pMatrix, v);
+  //vec3.subtract(tracer.ray00, tracer.eye, tracer.ray10);
+
+  tracer.ray01 = vec3.unproject(point01, mvMatrix, pMatrix, v);
+  //vec3.subtract(tracer.ray00, tracer.eye, tracer.ray01);
+
+ tracer.ray11 = vec3.unproject(point11, mvMatrix, pMatrix, v);
+ // vec3.subtract(tracer.ray00, tracer.eye, tracer.ray11);
+ console.log("tracer data: " + vec3.str(tracer.ray00) + "," +  vec3.str(tracer.ray10) + "," + vec3.str(tracer.ray01) + "," + vec3.str(tracer.ray11));
+  tracer.viewport = v;
+}
+
+function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ray direction
+    var ray = vec3.create();
+
+    var x = (h - tracer.viewport[0]) / tracer.viewport[2];
+    var y = 1.0 - (v - tracer.viewport[1]) / tracer.viewport[3];
+
+    //console.log("coord is: "+x+","+y);
+    var rayY0 = vec3.create();
+    vec3.lerp(tracer.ray00, tracer.ray10, x, rayY0);
+    var rayY1 = vec3.create();
+    vec3.lerp(tracer.ray01, tracer.ray11, x, rayY1);
+    vec3.lerp(rayY0, rayY1, y, ray);
+    vec3.normalize(ray,ray);
+   // console.log("the ray passing the pixel is " + vec3.str(ray));
+    return ray;
+
+}
+
+ 
+function drawRipple(x,y){   //draw ripple with left mouse click
+    rayEyeToPixel(x,y);
+console.log(x + "," +y);
+    //var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
+      //  water.addDrop(pointOnPlane.x, pointOnPlane.z, 0.03, 0.01);
+}
 
     function animate() {
         var timeNow = new Date().getTime();
@@ -494,6 +646,7 @@ function drawWater(){
         canvas.oncontextmenu = function(ev) {return false;};
         document.onmouseup = handleMouseUp;
         document.onmousemove = handleMouseMove;
+
 
         initShaders();
         initBuffers();

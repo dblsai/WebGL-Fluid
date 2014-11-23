@@ -265,6 +265,18 @@
 
 </script>
 
+<script id="interact-vs" type="x-shader/x-vertex">
+ attribute vec3 aVertexPosition;
+ varying vec2 vCoord;
+    void main() {
+      vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
+      gl_Position = vec4(aVertexPosition.xyz, 1.0);  //remain screen coords
+    }
+</script>
+
+<script id="interact-ripple-fs" type="x-shader/x-fragment">
+</script>
+
 </head> 
 
 <body onload="webGLStart();">
