@@ -13,6 +13,7 @@
     var mvMatrixStack = [];
     var pMatrix = mat4.create();
     var nmlMatrix = mat4.create();
+    var eyePos = [0.0,0.0,0.0];
 
     // animating 
     var lastTime = 0;
@@ -29,6 +30,7 @@
     var pool = {};    //a cube without top plane
     var sky = {};    //a cube
     var water = {};   //a plane
+
 
     function initGL(canvas) {
         try {
@@ -97,7 +99,9 @@
 
         poolProg.pMatrixUniform = gl.getUniformLocation(poolProg, "uPMatrix");
         poolProg.mvMatrixUniform = gl.getUniformLocation(poolProg, "uMVMatrix");
-        poolProg.samplerUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
+        poolProg.NmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
+        poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
+
 
 
      //-----------------------sky------------------------------
@@ -115,7 +119,7 @@
 
         skyProg.pMatrixUniform = gl.getUniformLocation(skyProg, "uPMatrix");
         skyProg.mvMatrixUniform = gl.getUniformLocation(skyProg, "uMVMatrix");
-        skyProg.samplerUniform = gl.getUniformLocation(skyProg, "uSamplerSky");
+        skyProg.samplerSkyUniform = gl.getUniformLocation(skyProg, "uSamplerSky");
 
         //-----------------------water---------------------------------
 
@@ -135,9 +139,10 @@
 
         waterProg.pMatrixUniform = gl.getUniformLocation(waterProg, "uPMatrix");
         waterProg.mvMatrixUniform = gl.getUniformLocation(waterProg, "uMVMatrix");
-        waterProg.samplerUniform = gl.getUniformLocation(waterProg, "uSamplerSky");
+        waterProg.samplerSkyUniform = gl.getUniformLocation(waterProg, "uSamplerSky");
+        waterProg.samplerTileUniform = gl.getUniformLocation(waterProg, "uSamplerTile");
         waterProg.eyePositionUniform = gl.getUniformLocation(waterProg,"uEyePosition");
-         waterProg.NmlMatrixUniform = gl.getUniformLocation(waterProg, "uNmlMatrix");
+        waterProg.NmlMatrixUniform = gl.getUniformLocation(waterProg, "uNmlMatrix");
     }
 
 
@@ -187,7 +192,7 @@
                        gl.TEXTURE_CUBE_MAP_POSITIVE_Z, gl.TEXTURE_CUBE_MAP_NEGATIVE_Z ];
                     for (var j = 0; j < 6; j++) {
                       //  console.log("bingding skybox texture: " + targets[j]);
-                      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+                        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
                         gl.texImage2D(targets[j], 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img[j]);
                         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -339,6 +344,7 @@
         mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
         mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
 
+
         mat4.inverse(mvMatrix,nmlMatrix);
         mat4.transpose(nmlMatrix,nmlMatrix);
 
@@ -369,9 +375,10 @@ function drawPool(){
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
-        gl.uniform1i(poolProg.samplerUniform, 0);
+        gl.uniform1i(poolProg.samplerTileUniform, 0);
 
         setMatrixUniforms(poolProg);
+         gl.uniformMatrix4fv(poolProg.NmlMatrixUniform, false, nmlMatrix);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
         gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -398,6 +405,10 @@ function drawSkyBox() {
         gl.enableVertexAttribArray(skyProg.vertexPositionAttribute );
 
         setMatrixUniforms(skyProg);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);
+        gl.uniform1i(skyProg.samplerSkyUniform, 1);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sky.IBO);
         gl.drawElements(gl.TRIANGLES, sky.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -429,19 +440,26 @@ function drawWater(){
 
 
         setMatrixUniforms(waterProg);
-
         gl.uniformMatrix4fv(waterProg.NmlMatrixUniform, false, nmlMatrix);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);
+        gl.uniform1i(waterProg.samplerSkyUniform, 1);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
+        gl.uniform1i(waterProg.samplerTileUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
         gl.uniform3fv(waterProg.eyePositionUniform, new Float32Array([0.0, 0.0, 0.0]) );
 
-    /*    gl.disableVertexAttribArray(waterProg.vertexPositionAttribute);
+       gl.disableVertexAttribArray(waterProg.vertexPositionAttribute);
         //gl.disableVertexAttribArray(waterProg.textureCoordAttribute);
         gl.disableVertexAttribArray(waterProg.vertexNormalAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);*/
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
 }
 
