@@ -23,8 +23,8 @@
 		var texcoordPtr = 0;
 		var normalPtr = 0;
 
-		detailX = detailX || 4;
-		detailY = detailY || 4;
+		detailX = detailX || 1;
+		detailY = detailY || 1;
 		waterHeight = waterHeight||0.0;
 
 		for (var y = 0; y <= detailY; y++) {

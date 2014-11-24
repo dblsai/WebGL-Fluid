@@ -10,7 +10,7 @@
    // shader programs
     var poolProg;
     var skyProg;
-    var waterProg;
+    var waterProg = [];
     var rippleProg;
     
     //rendering
@@ -155,7 +155,34 @@
 
         //-----------------------water---------------------------------
 
-        waterProg = gl.createProgram();
+        for(var i=0; i<2; i++){
+
+            waterProg[i] = gl.createProgram();
+            gl.attachShader(waterProg[i], getShader(gl, "water-vs") );
+            gl.attachShader(waterProg[i], getShader(gl, "water-fs") );
+            gl.linkProgram(waterProg[i]);
+
+            if (!gl.getProgramParameter(waterProg[i], gl.LINK_STATUS)) {
+                alert("Could not initialize water shader.");
+            }
+            gl.useProgram(waterProg[i]);
+
+            waterProg[i].vertexPositionAttribute = gl.getAttribLocation(waterProg[i], "aVertexPosition");
+            waterProg[i].vertexNormalAttribute = gl.getAttribLocation(waterProg[i], "aVertexNormal");
+            //waterProg.textureCoordAttribute = gl.getAttribLocation(waterProg, "aTextureCoord");
+
+            waterProg[i].pMatrixUniform = gl.getUniformLocation(waterProg[i], "uPMatrix");
+            waterProg[i].mvMatrixUniform = gl.getUniformLocation(waterProg[i], "uMVMatrix");
+            waterProg[i].samplerSkyUniform = gl.getUniformLocation(waterProg[i], "uSamplerSky");
+            waterProg[i].samplerTileUniform = gl.getUniformLocation(waterProg[i], "uSamplerTile");
+            waterProg[i].samplerHeightUniform = gl.getUniformLocation(waterProg[i], "uSamplerHeight");
+            waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
+            waterProg[i].NmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
+            waterProg[i].ProgNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
+
+        }
+
+   /*  waterProg = gl.createProgram();
         gl.attachShader(waterProg, getShader(gl, "water-vs") );
         gl.attachShader(waterProg, getShader(gl, "water-fs") );
         gl.linkProgram(waterProg);
@@ -175,8 +202,7 @@
         waterProg.samplerTileUniform = gl.getUniformLocation(waterProg, "uSamplerTile");
         waterProg.samplerHeightUniform = gl.getUniformLocation(waterProg, "uSamplerHeight");
         waterProg.eyePositionUniform = gl.getUniformLocation(waterProg,"uEyePosition");
-        waterProg.NmlMatrixUniform = gl.getUniformLocation(waterProg, "uNmlMatrix");
-
+        waterProg.NmlMatrixUniform = gl.getUniformLocation(waterProg, "uNmlMatrix");*/
         //-----------------------ripple------------------------------------------------
         rippleProg = gl.createProgram();
         gl.attachShader(rippleProg, getShader(gl, "interact-vs") );
@@ -597,24 +623,16 @@ function drawSkyBox() {
 }
 
 function drawWater(){
-   // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+ /*  // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // gl.enable(gl.DEPTH_TEST);
-     gl.useProgram(waterProg);
-
-   //  console.log("drawing water");
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.useProgram(waterProg);
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
         gl.vertexAttribPointer(waterProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(waterProg.vertexPositionAttribute);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, water.NBO);
         gl.vertexAttribPointer(waterProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(waterProg.vertexNormalAttribute);
-
-    /*    gl.bindBuffer(gl.ARRAY_BUFFER, water.TBO);
-        gl.vertexAttribPointer(waterProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(waterProg.textureCoordAttribute);*/
-
 
         setMatrixUniforms(waterProg);
         gl.uniformMatrix4fv(waterProg.NmlMatrixUniform, false, nmlMatrix);
@@ -635,13 +653,56 @@ function drawWater(){
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
-        gl.uniform3fv(waterProg.eyePositionUniform, eye);
-
-       gl.disableVertexAttribArray(waterProg.vertexPositionAttribute);
+        gl.uniform3fv(waterProg.eyePositionUniform, eye);  
+           gl.disableVertexAttribArray(waterProg.vertexPositionAttribute);
         //gl.disableVertexAttribArray(waterProg.textureCoordAttribute);
         gl.disableVertexAttribArray(waterProg.vertexNormalAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); */
+gl.enable(gl.CULL_FACE);
+        for(var i=0 ;i<2; i++){
+              
+              gl.cullFace(i ? gl.BACK : gl.FRONT);
+
+            gl.useProgram(waterProg[i]);
+            gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+            gl.vertexAttribPointer(waterProg[i].vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(waterProg[i].vertexPositionAttribute);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, water.NBO);
+            gl.vertexAttribPointer(waterProg[i].vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(waterProg[i].vertexNormalAttribute);
+
+            setMatrixUniforms(waterProg[i]);
+            gl.uniformMatrix4fv(waterProg[i].NmlMatrixUniform, false, nmlMatrix);
+            gl.uniform1i(waterProg[i].ProgNumUniform, i);
+
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);
+            gl.uniform1i(waterProg[i].samplerSkyUniform, 1);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
+            gl.uniform1i(waterProg[i].samplerTileUniform,0);
+
+           // console.log(water.TextureA);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+            gl.uniform1i(waterProg[i].samplerHeightUniform,2);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+            gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+            gl.uniform3fv(waterProg[i].eyePositionUniform, eye);
+
+
+              gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); 
+       
+        }
+ gl.disable(gl.CULL_FACE);
+      
+
 
 }
 
