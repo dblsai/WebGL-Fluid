@@ -3,6 +3,10 @@
     var gl;
     var tracer = {};
 
+    //necessary extensions
+    var OES_texture_float;
+    var OES_texture_float_linear;
+
    // shader programs
     var poolProg;
     var skyProg;
@@ -188,8 +192,8 @@
        // rippleProg.vertexNormalAttribute = gl.getAttribLocation(rippleProg, "aVertexNormal");
         //waterProg.textureCoordAttribute = gl.getAttribLocation(waterProg, "aTextureCoord");
 
-        rippleProg.pMatrixUniform = gl.getUniformLocation(rippleProg, "uPMatrix");
-        rippleProg.mvMatrixUniform = gl.getUniformLocation(rippleProg, "uMVMatrix");
+       // rippleProg.pMatrixUniform = gl.getUniformLocation(rippleProg, "uPMatrix");
+        //rippleProg.mvMatrixUniform = gl.getUniformLocation(rippleProg, "uMVMatrix");
         rippleProg.samplerFloatUniform = gl.getUniformLocation(rippleProg, "uSamplerFloat");
         rippleProg.centerUniform = gl.getUniformLocation(rippleProg,"uCenter");
 
@@ -200,10 +204,13 @@
     function handleLoadedTexture(texture) {
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        //gl.generateMipmap(gl.TEXTURE_2D);
+       // gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     function initTexture(texture, url) {
@@ -220,14 +227,23 @@
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
         //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, data );
-        gl.texImage2D( gl.TEXTURE_2D, 0, format, width, height, 0, format, gl.UNSIGNED_BYTE,null);
-         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
+       
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+
+        var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter );
 
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE  );
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
-        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        if(OES_texture_float){
+            gl.texImage2D( gl.TEXTURE_2D, 0, format, width, height, 0, format, gl.FLOAT,null);
+          }
+          else{
+            alert("OES_texture_float is not enabled.");
+          }
+       // gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     function loadTextureSkyBox() {
@@ -431,6 +447,7 @@
         var deltaY = newY - lastMouseY;
         
         if( mouseLeftDown ) {
+            duringInterction(newX, newY);
             //radius += 0.01 * deltaY;
             //radius = Math.min(Math.max(radius, 2.0), 10.0);
         }
@@ -458,9 +475,24 @@
       //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
        //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-          //console.log("water plane hit");
+          console.log("water plane hit");
           drawRipple(x,y);
         }
+    }
+
+    function duringInterction(x,y){
+
+        var ray = vec3.create();
+        ray = rayEyeToPixel(x,y);
+        var scale = -tracer.eye[1] / ray[1];
+        //move in the direction of ray, until gets the 'y=waterHeight' plane
+        var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
+   
+        if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
+          console.log("water plane hit");
+          drawRipple(x,y);
+        }
+
     }
 
     function drawScene() {
@@ -595,6 +627,7 @@ function drawWater(){
         gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
         gl.uniform1i(waterProg.samplerTileUniform,0);
 
+       // console.log(water.TextureA);
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
         gl.uniform1i(waterProg.samplerHeightUniform,2);
@@ -614,7 +647,10 @@ function drawWater(){
 
 function drawRipple(x,y){   //draw ripple with left mouse click
 
-        startDrawToTexture(water.textureA);
+        //draw to textureB
+        startDrawToTexture(water.textureB, textureSize, textureSize);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
 
         gl.useProgram(rippleProg);
 
@@ -622,7 +658,9 @@ function drawRipple(x,y){   //draw ripple with left mouse click
         gl.vertexAttribPointer(rippleProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(rippleProg.vertexPositionAttribute);
 
-        setMatrixUniforms(rippleProg);
+      //  setMatrixUniforms(rippleProg);
+
+        gl.uniform2f(rippleProg.centerUniform, x, y);
 
         gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
@@ -632,29 +670,34 @@ function drawRipple(x,y){   //draw ripple with left mouse click
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
 
-       gl.disableVertexAttribArray(rippleProg.vertexPositionAttribute);
+        gl.disableVertexAttribArray(rippleProg.vertexPositionAttribute);
         //gl.disableVertexAttribArray(waterProg.textureCoordAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
         endDrawToTexture();
 
+        //swap to textureA
+        swapTexture(water.textureA, water.textureB);
+        //console.log("finish starting to draw ripple");
+
 }
 
-function startDrawToTexture( texture){   // rendering to a texture
+function startDrawToTexture( texture, width, height){   // rendering to a texture
     //buffer original viewport
     viewportOriginal = gl.getParameter(gl.VIEWPORT);
 
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
 
    
-    if (textureSize != renderbuffer.width || textureSize!= renderbuffer.height) {
-      renderbuffer.width = textureSize;
-      renderbuffer.height = textureSize;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
+    if (width != renderbuffer.width || height!= renderbuffer.height) {
+      renderbuffer.width = width;
+      renderbuffer.height = height;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
     }
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
@@ -664,8 +707,9 @@ function startDrawToTexture( texture){   // rendering to a texture
       alert("Rendering to this texture is not supported");
     }
      //resize rendering viewport
-    gl.viewport(0, 0, textureSize, textureSize);
+    gl.viewport(0, 0, width, height);
 
+   // console.log("successfully rendered to texture");
     //callback();
 }
 
@@ -676,6 +720,12 @@ function endDrawToTexture(texture){
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.viewport(viewportOriginal[0], viewportOriginal[1], viewportOriginal[2], viewportOriginal[3]);
 
+}
+
+function swapTexture(textureA, textureB){
+    var temp = textureA;
+    textureA = textureB;
+    textureB = temp;
 }
 
 function updateTracer(){
@@ -777,6 +827,10 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
         document.onmouseup = handleMouseUp;
         document.onmousemove = handleMouseMove;
 
+        //enable necessry extensions.
+        OES_texture_float_linear = gl.getExtension("OES_texture_float_linear");
+        OES_texture_float = gl.getExtension("OES_texture_float");
+
 
         initShaders();
         initBuffers();
@@ -787,11 +841,11 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
        //initTexture(pool.Texture, "tile/tile2.jpg");
       water.TextureA = gl.createTexture();
       water.TextureB = gl.createTexture();
-      initFloatTexture(water.TextureA, gl.FLOAT, textureSize, textureSize );
-        initFloatTexture(water.TextureB, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureA, gl.RGBA, textureSize, textureSize );
+      initFloatTexture(water.TextureB, gl.RGBA, textureSize, textureSize);
 
        loadTextureSkyBox(); 
-
+   
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
 
