@@ -552,7 +552,7 @@ function drawWater(){
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
-        gl.uniform3fv(waterProg.eyePositionUniform, new Float32Array([0.0, 0.0, 0.0]) );
+        gl.uniform3fv(waterProg.eyePositionUniform, eye);
 
        gl.disableVertexAttribArray(waterProg.vertexPositionAttribute);
         //gl.disableVertexAttribArray(waterProg.textureCoordAttribute);
