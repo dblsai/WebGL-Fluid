@@ -7,7 +7,13 @@
     var poolProg;
     var skyProg;
     var waterProg;
+    var rippleProg;
     
+    //rendering
+    var framebuffer;
+    var renderbuffer;
+    var viewportOriginal
+    var textureSize = 256;
 
     // matrices
     var mvMatrix = mat4.create();
@@ -18,7 +24,7 @@
     var radius = 4.0;
     //var azimuth = 0.5*Math.PI;
     var azimuth = 0.0;
-    var elevation = 0.0;
+    var elevation = 0.5;
     var eye = sphericalToCartesian(radius, azimuth, elevation);
     var center = [0.0, 0.0, 0.0];
     var up = [0.0, 1.0, 0.0];
@@ -163,8 +169,31 @@
         waterProg.mvMatrixUniform = gl.getUniformLocation(waterProg, "uMVMatrix");
         waterProg.samplerSkyUniform = gl.getUniformLocation(waterProg, "uSamplerSky");
         waterProg.samplerTileUniform = gl.getUniformLocation(waterProg, "uSamplerTile");
+        waterProg.samplerHeightUniform = gl.getUniformLocation(waterProg, "uSamplerHeight");
         waterProg.eyePositionUniform = gl.getUniformLocation(waterProg,"uEyePosition");
         waterProg.NmlMatrixUniform = gl.getUniformLocation(waterProg, "uNmlMatrix");
+
+        //-----------------------ripple------------------------------------------------
+        rippleProg = gl.createProgram();
+        gl.attachShader(rippleProg, getShader(gl, "interact-vs") );
+        gl.attachShader(rippleProg, getShader(gl, "interact-ripple-fs") );
+        gl.linkProgram(rippleProg);
+
+        if (!gl.getProgramParameter(rippleProg, gl.LINK_STATUS)) {
+            alert("Could not initialize ripple shader.");
+        }
+        gl.useProgram(rippleProg);
+
+        rippleProg.vertexPositionAttribute = gl.getAttribLocation(rippleProg, "aVertexPosition");
+       // rippleProg.vertexNormalAttribute = gl.getAttribLocation(rippleProg, "aVertexNormal");
+        //waterProg.textureCoordAttribute = gl.getAttribLocation(waterProg, "aTextureCoord");
+
+        rippleProg.pMatrixUniform = gl.getUniformLocation(rippleProg, "uPMatrix");
+        rippleProg.mvMatrixUniform = gl.getUniformLocation(rippleProg, "uMVMatrix");
+        rippleProg.samplerFloatUniform = gl.getUniformLocation(rippleProg, "uSamplerFloat");
+        rippleProg.centerUniform = gl.getUniformLocation(rippleProg,"uCenter");
+
+
     }
 
 
@@ -185,6 +214,20 @@
         }
 
         texture.image.src = url;
+    }
+
+    function initFloatTexture( texture, format, width, height ){ 
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, data );
+        gl.texImage2D( gl.TEXTURE_2D, 0, format, width, height, 0, format, gl.UNSIGNED_BYTE,null);
+         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE  );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     function loadTextureSkyBox() {
@@ -409,38 +452,41 @@
         var ray = vec3.create();
         ray = rayEyeToPixel(x,y);
         var scale = -tracer.eye[1] / ray[1];
+        //move in the direction of ray, until gets the 'y=waterHeight' plane
         var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
    
       //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
-      console.log("pixel= "+ x +"," +y +"   tracer.eye= " + vec3.str(tracer.eye)+"    ray= " + vec3.str(ray)+"    point= " +vec3.str(point));
+       //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-        console.log("water plane hit");
-       // duringDrag(x, y);
+          //console.log("water plane hit");
+          drawRipple(x,y);
         }
     }
 
     function drawScene() {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-       
+        mat4.perspective(45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
         mat4.identity(mvMatrix);
         mat4.multiply(mvMatrix,view);
+
       /*  mat4.translate(mvMatrix, [0.0, 0.0, -4.0]);
         mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
         mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
-        mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
+        mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);*/
 
-        var xAxis = vec3.create( [mvMatrix[0], mvMatrix[4], mvMatrix[8]] );
+        /*var xAxis = vec3.create( [mvMatrix[0], mvMatrix[4], mvMatrix[8]] );
         var yAxis = vec3.create( [mvMatrix[1], mvMatrix[5], mvMatrix[9]] );
         var zAxis = vec3.create( [mvMatrix[2], mvMatrix[6], mvMatrix[10]] );
         var offset = vec3.create( [mvMatrix[3], mvMatrix[7], mvMatrix[11]] );
         var xNew = vec3.dot(vec3.negate(offset),xAxis);
         var yNew = vec3.dot(vec3.negate(offset),yAxis);
         var zNew = vec3.dot(vec3.negate(offset),zAxis);
-       // console.log("offset: "+ vec3.str(vec3.negate(offset)));
-        //console.log("axis: "+ vec3.str(xAxis)+"," +vec3.str(yAxis)+","+vec3.str(zAxis) );
+        //console.log("offset: "+ vec3.str(vec3.negate(offset)));
+        console.log("axis: "+ vec3.str(xAxis)+"," +vec3.str(yAxis)+","+vec3.str(zAxis) );
         //console.log("eye pos calculation: "+ xNew+"," +yNew+","+zNew );
-        eyePos = vec3.create([xNew,yNew,zNew]);*/
+        eyePos = vec3.create([xNew,yNew,zNew]);
+        console.log("eyePos = " + vec3.str(eyePos) +"           eye = " + eye);*/
         
 
         mat4.inverse(mvMatrix,nmlMatrix);
@@ -549,6 +595,10 @@ function drawWater(){
         gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
         gl.uniform1i(waterProg.samplerTileUniform,0);
 
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(waterProg.samplerHeightUniform,2);
+
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
@@ -562,11 +612,76 @@ function drawWater(){
 
 }
 
+function drawRipple(x,y){   //draw ripple with left mouse click
+
+        startDrawToTexture(water.textureA);
+
+        gl.useProgram(rippleProg);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(rippleProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(rippleProg.vertexPositionAttribute);
+
+        setMatrixUniforms(rippleProg);
+
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(rippleProg.samplerFloatUniform,3);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+
+       gl.disableVertexAttribArray(rippleProg.vertexPositionAttribute);
+        //gl.disableVertexAttribArray(waterProg.textureCoordAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        endDrawToTexture();
+
+}
+
+function startDrawToTexture( texture){   // rendering to a texture
+    //buffer original viewport
+    viewportOriginal = gl.getParameter(gl.VIEWPORT);
+
+    framebuffer = framebuffer || gl.createFramebuffer();
+    renderbuffer = renderbuffer || gl.createRenderbuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+
+   
+    if (textureSize != renderbuffer.width || textureSize!= renderbuffer.height) {
+      renderbuffer.width = textureSize;
+      renderbuffer.height = textureSize;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
+    }
+    
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer);
+
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
+      alert("Rendering to this texture is not supported");
+    }
+     //resize rendering viewport
+    gl.viewport(0, 0, textureSize, textureSize);
+
+    //callback();
+}
+
+function endDrawToTexture(texture){
+
+    // restore original viewport
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.viewport(viewportOriginal[0], viewportOriginal[1], viewportOriginal[2], viewportOriginal[3]);
+
+}
+
 function updateTracer(){
  // tracer.eye = vec3.create(eyePos);
  tracer.eye = vec3.create(eye);
- // console.log("eyePos = " + vec3.str(eyePos));
- // console.log("tracer.eye = " + vec3.str(tracer.eye));
+
   var v = gl.getParameter(gl.VIEWPORT);   //{0,0,canvas.width,canvas.height}
   //var m = gl.modelviewMatrix.m;
   var point00 = vec3.create( [v[0], v[1], 1] );  // {x,y,depth}
@@ -576,18 +691,36 @@ function updateTracer(){
   //console.log("viewport data: " +v[0] + "," + v[1] + "," + v[2] + "," + v[3]);
   //console.log("point data: " + vec3.str(point00) + "," +  vec3.str(point10) + "," + vec3.str(point01) + "," + vec3.str(point11));
 
-  tracer.ray00 = vec3.unproject(point00, mvMatrix, pMatrix, v);
- // vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
+  var modelPointArrayResults = [];
+  var success = GLU.unProject(v[0], v[1], 1, mvMatrix, pMatrix, v, modelPointArrayResults);
+  tracer.ray00 = vec3.create(modelPointArrayResults);
+  vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
+
+  success = GLU.unProject(v[0]+v[2], v[1], 1, mvMatrix, pMatrix, v, modelPointArrayResults);
+  tracer.ray10 = vec3.create(modelPointArrayResults);
+  vec3.subtract(tracer.ray10, tracer.eye, tracer.ray10);
+
+  success = GLU.unProject(v[0], v[1]+v[3], 1, mvMatrix, pMatrix, v, modelPointArrayResults);
+  tracer.ray01 = vec3.create(modelPointArrayResults);
+  vec3.subtract(tracer.ray01, tracer.eye, tracer.ray01);
+
+  success = GLU.unProject(v[0]+v[2], v[1]+v[3], 1, mvMatrix, pMatrix, v, modelPointArrayResults);
+  tracer.ray11 = vec3.create(modelPointArrayResults);
+  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);
+
+/*tracer.ray00 = vec3.unproject(point00, mvMatrix, pMatrix, v);
+  vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
 
   tracer.ray10 = vec3.unproject(point10, mvMatrix, pMatrix, v);
-  //vec3.subtract(tracer.ray00, tracer.eye, tracer.ray10);
+  vec3.subtract(tracer.ray10, tracer.eye, tracer.ray10);
 
   tracer.ray01 = vec3.unproject(point01, mvMatrix, pMatrix, v);
-  //vec3.subtract(tracer.ray00, tracer.eye, tracer.ray01);
+  vec3.subtract(tracer.ray01, tracer.eye, tracer.ray01);
 
  tracer.ray11 = vec3.unproject(point11, mvMatrix, pMatrix, v);
- // vec3.subtract(tracer.ray00, tracer.eye, tracer.ray11);
- console.log("tracer data: " + vec3.str(tracer.ray00) + "," +  vec3.str(tracer.ray10) + "," + vec3.str(tracer.ray01) + "," + vec3.str(tracer.ray11));
+  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);*/
+
+ //console.log("initial tracer: \n" + vec3.str(tracer.ray00) + "\n" +  vec3.str(tracer.ray10) + "\n" + vec3.str(tracer.ray01) + "\n" + vec3.str(tracer.ray11));
   tracer.viewport = v;
 }
 
@@ -600,8 +733,10 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
     //console.log("coord is: "+x+","+y);
     var rayY0 = vec3.create();
     vec3.lerp(tracer.ray00, tracer.ray10, x, rayY0);
+
     var rayY1 = vec3.create();
     vec3.lerp(tracer.ray01, tracer.ray11, x, rayY1);
+
     vec3.lerp(rayY0, rayY1, y, ray);
     vec3.normalize(ray,ray);
    // console.log("the ray passing the pixel is " + vec3.str(ray));
@@ -610,12 +745,7 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
 }
 
  
-function drawRipple(x,y){   //draw ripple with left mouse click
-    rayEyeToPixel(x,y);
-console.log(x + "," +y);
-    //var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
-      //  water.addDrop(pointOnPlane.x, pointOnPlane.z, 0.03, 0.01);
-}
+
 
     function animate() {
         var timeNow = new Date().getTime();
@@ -633,7 +763,7 @@ console.log(x + "," +y);
     function tick() {
         requestAnimFrame(tick);
         drawScene();
-        drawSkyBox()
+     
         animate();
     }
 
@@ -655,7 +785,11 @@ console.log(x + "," +y);
        pool.Texture = gl.createTexture();
        initTexture(pool.Texture, "tile/tile.png");
        //initTexture(pool.Texture, "tile/tile2.jpg");
-     
+      water.TextureA = gl.createTexture();
+      water.TextureB = gl.createTexture();
+      initFloatTexture(water.TextureA, gl.FLOAT, textureSize, textureSize );
+        initFloatTexture(water.TextureB, gl.FLOAT, textureSize, textureSize);
+
        loadTextureSkyBox(); 
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);

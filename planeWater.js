@@ -25,7 +25,7 @@
 
 		detailX = detailX || 4;
 		detailY = detailY || 4;
-		waterHeight = waterHeight||0.6;
+		waterHeight = waterHeight||0.0;
 
 		for (var y = 0; y <= detailY; y++) {
 	   		var t = y / detailY;

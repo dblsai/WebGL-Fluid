@@ -148,7 +148,7 @@ vec3.unProject = function(winX, winY, winZ, modelview, projection, viewport) {
     return Matrix.inverse(Matrix.multiply(projection, modelview, tempMatrix), resultMatrix).transformPoint(point);
   };*/
 
-vec3.unproject = function (vec, view, proj, viewport) {
+vec3.unproject = function (vec, modelview, proj, viewport) {
 
 //vec is a vec3 describing the screenspace x and y coordinates as well as the depth of the pixel. 
 //view and proj are mat4 that holds the view and projection matrices.
@@ -161,19 +161,20 @@ vec3.unproject = function (vec, view, proj, viewport) {
     var tv = vec4.create();//transformed vector
      
     //apply viewport transform
-    //console.log("glMatrix vec: " + vec[0] + "," + vec[1] + "," + vec[2] );
+   // console.log("glMatrix vec: " + vec[0] + "," + vec[1] + "," + vec[2] );
    // console.log("glMatrix viewport: " + viewport[0] + "," + viewport[1] + "," + viewport[2] + "," +viewport[3]);
     v[0] = (vec[0] - viewport[0]) * 2.0 / viewport[2] - 1.0;
     v[1] = (vec[1] - viewport[1]) * 2.0 / viewport[3] - 1.0;
-   // v[2] = vec[2];
+  //  v[2] = vec[2];
    v[2] = vec[2] * 2.0 -1.0;
     v[3] = 1.0;
      
     //build and invert viewproj matrix
    // mat4.multiply(m,view,proj);
-    mat4.multiply(view,proj,m);
+   // mat4.multiply(view,proj,m);
+   mat4.multiply(proj,modelview,m);
     //console.log("glMatrix m: " + m[0] + "," + m[1] + "," + m[2] + "," +m[3]);
-    mat4.inverse(m,im) 
+    im = mat4.inverse(m);
     if(im === null)
     { return null; }
     // console.log("glMatrix im: " + im[0] + "," + im[1] + "," + im[2] + "," +im[3]);
@@ -184,11 +185,11 @@ vec3.unproject = function (vec, view, proj, viewport) {
     // console.log("glMatrix v: " + v[0] + "," + v[1] + "," + v[2] + "," +v[3]);
     // console.log("glMatrix tv: " + tv[0] + "," + tv[1] + "," + tv[2] + "," +tv[3]);
 
-   // dest[0] = tv[0] / tv[3];
-   // dest[1] = tv[1] / tv[3];
-   /// dest[2] = tv[2] / tv[3];
-    // return dest;
-    return tv;
+    dest[0] = tv[0] / tv[3];
+    dest[1] = tv[1] / tv[3];
+    dest[2] = tv[2] / tv[3];
+     return dest;
+    //return tv;
 };
 
 var mat3 = {};
