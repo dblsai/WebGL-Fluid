@@ -54,10 +54,13 @@
 
     float waterHeight = 0.0;
     vec3 lightPos = vec3(0.0,2.0,-2.0);
+    vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
    // vec3 lightDir = vec3(0.5,1.2,0.3);
     vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
     float lightIntensity = 1.4;
     float poolHeight = 0.8;
+    const float IOR_AIR = 1.0;
+    const float IOR_WATER = 1.133;
 
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
         vec3 tMin = (cubeMin - origin) / ray;
@@ -114,7 +117,7 @@
     void main(void) {
         vec3 lightDir = normalize(vVertexPosition-lightPos);
         float diffuseTerm = clamp(dot(normalize(lightDir), normalize(vVertexNormal) ), 0.0, 1.0);
-        vec3 color = texture2D(uSamplerTile, vTextureCoord).rgb;
+        vec3 color = getWallColor(vVertexPosition);
         if(vVertexPositionMC.y < waterHeight){
             color *= underwaterColor;
         }
@@ -129,7 +132,7 @@
     //gl_FragColor = vec4(hitCube,1.0);
 
         color *= lightIntensity*diffuseTerm;
-      gl_FragColor = vec4(getWallColor(vVertexPosition), 1.0);
+      gl_FragColor = vec4(color, 1.0);
     }
 </script>
 
