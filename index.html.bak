@@ -11,7 +11,6 @@
 <script type="text/javascript" src="cubePool.js"></script>
 <script type="text/javascript" src="cubeSky.js"></script>
 <script type="text/javascript" src ="planeWater.js"></script>
-<script type="text/javascript" src ="GLU.js"></script>
 
 <script id="pool-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -52,7 +51,7 @@
    // uniform float waterHeight;
 
 
-    float waterHeight = 0.0;
+    float waterHeight = 0.6;
     vec3 lightPos = vec3(0.0,2.0,-2.0);
    // vec3 lightDir = vec3(0.5,1.2,0.3);
     vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
@@ -131,14 +130,12 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;  //for normal transformations
-    uniform sampler2D uSamplerHeight;  //height texture
 
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
 
     void main(void) {
-
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);//screen coord
         vVertexNormal = (uNmlMatrix * vec4(aVertexNormal, 0.0)).xyz;
         vVertexPositionWorld = (uMVMatrix * vec4(aVertexPosition.xzy, 1.0)).xyz;//world coord
@@ -158,7 +155,7 @@
     varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
 
-    float waterHeight = 0.0;
+    float waterHeight = 0.6;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
     float poolHeight = 0.8;
     const float IOR_AIR = 1.0;
@@ -248,7 +245,7 @@
         vec3 reflectDir = reflect(eyeDir,normal);
         vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
         vec3 abovewaterColor = vec3(0.25, 1.0, 1.25);
-        if(dot(eyeDir, normal) < 0.00001){
+        if(dot(eyeDir, normal) < 0.0){
           vec3 refractedDir = refract(eyeDir,normal, IOR_AIR / IOR_WATER); 
           float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0)); 
           vec3 refraColor = getRayColor(vVertexPosition, refractedDir, abovewaterColor);
@@ -272,47 +269,15 @@
 </script>
 
 <script id="interact-vs" type="x-shader/x-vertex">
-
  attribute vec3 aVertexPosition;
-
-  uniform mat4 uMVMatrix;
-  uniform mat4 uPMatrix;
-
  varying vec2 vCoord;
-
     void main() {
-         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);  //remain screen coords
-    
-        vCoord = gl_Position.xy * 0.5+ 0.5;
-      //vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
-     }
+      vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
+      gl_Position = vec4(aVertexPosition.xyz, 1.0);  //remain screen coords
+    }
 </script>
 
 <script id="interact-ripple-fs" type="x-shader/x-fragment">
-  precision mediump float;
-
- const float PI = 3.141592653589793;
-    uniform sampler2D uSamplerFloat;
-    uniform vec2 uCenter;
-
-   // uniform float radius;
-   // uniform float strength;
-
-   float radius = 0.03;
-   float strength = 0.01;
-
-    varying vec2 vCoord;
-
-    void main() {
-     vec4 data = texture2D(uSamplerFloat, vCoord);
-    
-      float drop = max(0.0, 1.0 - length(uCenter * 0.5 + 0.5 - vCoord) / radius);
-      drop = 0.5 - cos(drop * PI) * 0.5;
-      data.x += drop * strength;
-      
-      gl_FragColor = data;
-    }
-
 </script>
 
 </head> 
