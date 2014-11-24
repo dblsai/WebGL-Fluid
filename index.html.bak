@@ -11,6 +11,7 @@
 <script type="text/javascript" src="cubePool.js"></script>
 <script type="text/javascript" src="cubeSky.js"></script>
 <script type="text/javascript" src ="planeWater.js"></script>
+<script type="text/javascript" src ="GLU.js"></script>
 
 <script id="pool-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -30,7 +31,7 @@
 
     void main(void) {
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-        vVertexPosition = (uMVMatrix*vec4(aVertexPosition,1.0)).xyz;
+        vVertexPosition = aVertexPosition;//(uMVMatrix*vec4(aVertexPosition,1.0)).xyz;
         vVertexPositionMC = aVertexPosition;
         vTextureCoord = aTextureCoord;
        // vVertexNormal = aVertexNormal;
@@ -51,7 +52,7 @@
    // uniform float waterHeight;
 
 
-    float waterHeight = 0.6;
+    float waterHeight = 0.0;
     vec3 lightPos = vec3(0.0,2.0,-2.0);
    // vec3 lightDir = vec3(0.5,1.2,0.3);
     vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
@@ -67,7 +68,49 @@
         float tFar = min(min(t2.x, t2.y), t2.z);
         return vec2(tNear, tFar);
     }
+    vec3 getWallColor(vec3 point) {
+    float scale = 0.5;
+    vec3 wallColor = vec3(1.0, 0.0, 0.0);
+    vec3 normal;
 
+    if (abs(point.x) > 0.999) {  //left,right wall
+      wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
+   
+      normal = vec3(-point.x, 0.0, 0.0);
+
+    }
+     else if (abs(point.z) > 0.999) {   //front,back wall
+      wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
+
+      normal = vec3(0.0, 0.0, -point.z);
+
+    } 
+    else {   //bottm wall
+      wallColor = texture2D(uSamplerTile, point.xz * 0.5 + 0.5).rgb;
+
+      normal = vec3(0.0, 1.0, 0.0);
+    }
+    
+    scale /= length(point); 
+    //scale *= 1.0 - 0.9 / pow(length(point - sphereCenter) / sphereRadius, 4.0); 
+
+    vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+    float diffuse = max(0.0, dot(refractedLight, normal));
+    //vec4 info = texture2D(water, point.xz * 0.5 + 0.5);
+    //if (point.y < info.r) {
+    //  vec4 caustic = texture2D(causticTex, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+    //  scale += diffuse * caustic.r * 2.0 * caustic.g;
+    //} else {
+      
+      vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+      diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
+      
+      scale += diffuse * 0.5;
+    //}*/
+    
+    return wallColor * scale;
+   //return wallColor;
+  }
     void main(void) {
         vec3 lightDir = normalize(vVertexPosition-lightPos);
         float diffuseTerm = clamp(dot(normalize(lightDir), normalize(vVertexNormal) ), 0.0, 1.0);
@@ -78,15 +121,15 @@
 
         vec2 tCube = intersectCube(lightPos, lightDir, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
         vec3 hitCube = lightPos - lightDir * tCube.y;
-        if(hitCube.y<0.99)
-            color *= vec3(0.5,0.5,0.5);
+        //if(hitCube.y<0.99)
+            //scolor *= vec3(0.5,0.5,0.5);
   
       //  gl_FragColor = vec4( abs(vVertexNormal),1.0);
       //gl_FragColor = vec4(vVertexPosition,1.0);
     //gl_FragColor = vec4(hitCube,1.0);
 
         color *= lightIntensity*diffuseTerm;
-      gl_FragColor = vec4(color,1.0);
+      gl_FragColor = vec4(getWallColor(vVertexPosition), 1.0);
     }
 </script>
 
@@ -130,12 +173,14 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;  //for normal transformations
+    uniform sampler2D uSamplerHeight;  //height texture
 
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
 
     void main(void) {
+
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);//screen coord
         vVertexNormal = (uNmlMatrix * vec4(aVertexNormal, 0.0)).xyz;
         vVertexPositionWorld = (uMVMatrix * vec4(aVertexPosition.xzy, 1.0)).xyz;//world coord
@@ -155,11 +200,11 @@
     varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
 
-    float waterHeight = 0.6;
+    float waterHeight = 0.0;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
     float poolHeight = 0.8;
     const float IOR_AIR = 1.0;
-    const float IOR_WATER = 1.333;
+    const float IOR_WATER = 1.133;
     
     
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
@@ -174,17 +219,17 @@
 
   vec3 getWallColor(vec3 point) {
     float scale = 0.5;
-    vec3 wallColor;
+    vec3 wallColor = vec3(1.0, 0.0, 0.0);
     vec3 normal;
 
     if (abs(point.x) > 0.999) {  //left,right wall
-      wallColor = texture2D(uSamplerTile, point.yz * 0.5 + vec2(1.0, 0.5)).rgb;
+      wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
    
       normal = vec3(-point.x, 0.0, 0.0);
 
     }
      else if (abs(point.z) > 0.999) {   //front,back wall
-      wallColor = texture2D(uSamplerTile, point.yx * 0.5 + vec2(1.0, 0.5)).rgb;
+      wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
 
       normal = vec3(0.0, 0.0, -point.z);
 
@@ -195,25 +240,25 @@
       normal = vec3(0.0, 1.0, 0.0);
     }
     
- /*   scale /= length(point); 
-    scale *= 1.0 - 0.9 / pow(length(point - sphereCenter) / sphereRadius, 4.0); 
+    scale /= length(point); 
+    //scale *= 1.0 - 0.9 / pow(length(point - sphereCenter) / sphereRadius, 4.0); 
 
-    vec3 refractedLight = -refract(-light, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+    vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
     float diffuse = max(0.0, dot(refractedLight, normal));
-    vec4 info = texture2D(water, point.xz * 0.5 + 0.5);
-    if (point.y < info.r) {
-      vec4 caustic = texture2D(causticTex, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
-      scale += diffuse * caustic.r * 2.0 * caustic.g;
-    } else {
+    //vec4 info = texture2D(water, point.xz * 0.5 + 0.5);
+    //if (point.y < info.r) {
+    //  vec4 caustic = texture2D(causticTex, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+    //  scale += diffuse * caustic.r * 2.0 * caustic.g;
+    //} else {
       
       vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
       diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
       
       scale += diffuse * 0.5;
-    }*/
+    //}*/
     
-   // return wallColor * scale;
-   return wallColor;
+    return wallColor * scale;
+   //return wallColor;
   }
 
     vec3 getRayColor(vec3 origin, vec3 ray, vec3 waterColor) {
@@ -245,14 +290,14 @@
         vec3 reflectDir = reflect(eyeDir,normal);
         vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
         vec3 abovewaterColor = vec3(0.25, 1.0, 1.25);
-        if(dot(eyeDir, normal) < 0.0){
+        if(dot(eyeDir, normal) < 0.00001){
           vec3 refractedDir = refract(eyeDir,normal, IOR_AIR / IOR_WATER); 
           float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0)); 
           vec3 refraColor = getRayColor(vVertexPosition, refractedDir, abovewaterColor);
           vec3 refleColor = getRayColor(vVertexPosition, reflectDir, abovewaterColor);
 
-          //gl_FragColor = vec4(mix(refleColor, refraColor, fresnel), 1.0);
-          gl_FragColor = vec4(refraColor, 1.0);
+          gl_FragColor = vec4(mix(refleColor, refraColor, fresnel), 1.0);
+          //gl_FragColor = vec4(refraColor, 1.0);
        }
        else{
           normal = -normal;
@@ -269,15 +314,47 @@
 </script>
 
 <script id="interact-vs" type="x-shader/x-vertex">
+
  attribute vec3 aVertexPosition;
+
+  uniform mat4 uMVMatrix;
+  uniform mat4 uPMatrix;
+
  varying vec2 vCoord;
+
     void main() {
-      vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
-      gl_Position = vec4(aVertexPosition.xyz, 1.0);  //remain screen coords
-    }
+         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);  //remain screen coords
+    
+        vCoord = gl_Position.xy * 0.5+ 0.5;
+      //vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
+     }
 </script>
 
 <script id="interact-ripple-fs" type="x-shader/x-fragment">
+  precision mediump float;
+
+ const float PI = 3.141592653589793;
+    uniform sampler2D uSamplerFloat;
+    uniform vec2 uCenter;
+
+   // uniform float radius;
+   // uniform float strength;
+
+   float radius = 0.03;
+   float strength = 0.01;
+
+    varying vec2 vCoord;
+
+    void main() {
+     vec4 data = texture2D(uSamplerFloat, vCoord);
+    
+      float drop = max(0.0, 1.0 - length(uCenter * 0.5 + 0.5 - vCoord) / radius);
+      drop = 0.5 - cos(drop * PI) * 0.5;
+      data.x += drop * strength;
+      
+      gl_FragColor = data;
+    }
+
 </script>
 
 </head> 
