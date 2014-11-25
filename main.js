@@ -35,7 +35,12 @@
     var view = mat4.create();
     mat4.lookAt(eye, center, up, view);
 
-  
+    //fps
+    var numFramesToAverage = 16;
+    var frameTimeHistory = [];
+    var frameTimeIndex = 0;
+    var totalTimeForFrames = 0;
+    var then = Date.now() / 1000;
 
     // animating 
     var lastTime = 0;
@@ -501,7 +506,8 @@
       //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
        //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-          console.log("water plane hit");
+        //  console.log("water plane hit");
+          alert("water top surface hit");
           drawRipple(x,y);
         }
     }
@@ -802,7 +808,7 @@ function updateTracer(){
   //console.log("viewport data: " +v[0] + "," + v[1] + "," + v[2] + "," + v[3]);
   //console.log("point data: " + vec3.str(point00) + "," +  vec3.str(point10) + "," + vec3.str(point01) + "," + vec3.str(point11));
 
-  var modelPointArrayResults = [];
+ /* var modelPointArrayResults = [];
   var success = GLU.unProject(v[0], v[1], 1, mvMatrix, pMatrix, v, modelPointArrayResults);
   tracer.ray00 = vec3.create(modelPointArrayResults);
   vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
@@ -817,9 +823,9 @@ function updateTracer(){
 
   success = GLU.unProject(v[0]+v[2], v[1]+v[3], 1, mvMatrix, pMatrix, v, modelPointArrayResults);
   tracer.ray11 = vec3.create(modelPointArrayResults);
-  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);
+  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);*/
 
-/*tracer.ray00 = vec3.unproject(point00, mvMatrix, pMatrix, v);
+  tracer.ray00 = vec3.unproject(point00, mvMatrix, pMatrix, v);
   vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
 
   tracer.ray10 = vec3.unproject(point10, mvMatrix, pMatrix, v);
@@ -829,7 +835,7 @@ function updateTracer(){
   vec3.subtract(tracer.ray01, tracer.eye, tracer.ray01);
 
  tracer.ray11 = vec3.unproject(point11, mvMatrix, pMatrix, v);
-  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);*/
+  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);
 
  //console.log("initial tracer: \n" + vec3.str(tracer.ray00) + "\n" +  vec3.str(tracer.ray10) + "\n" + vec3.str(tracer.ray01) + "\n" + vec3.str(tracer.ray11));
   tracer.viewport = v;
@@ -872,6 +878,22 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
 
 
     function tick() {
+        var now = Date.now() / 1000;  
+        var elapsedTime = now - then;
+        then = now;
+
+        // update the frame history.
+        totalTimeForFrames += elapsedTime - (frameTimeHistory[frameTimeIndex] || 0);
+        frameTimeHistory[frameTimeIndex] = elapsedTime;
+        frameTimeIndex = (frameTimeIndex + 1) % numFramesToAverage;
+
+        // compute fps
+        var averageElapsedTime = totalTimeForFrames / numFramesToAverage;
+        var fps = 1 / averageElapsedTime;
+        document.getElementById("fps").innerText = fps.toFixed(0); 
+        //$('#fps').html(fps.toFixed(0));
+    
+
         requestAnimFrame(tick);
         drawScene();
      
