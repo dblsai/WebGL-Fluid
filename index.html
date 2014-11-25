@@ -60,7 +60,7 @@
     float lightIntensity = 1.4;
     float poolHeight = 0.8;
     const float IOR_AIR = 1.0;
-    const float IOR_WATER = 1.133;
+    const float IOR_WATER = 1.333;
 
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
         vec3 tMin = (cubeMin - origin) / ray;
@@ -215,7 +215,7 @@
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
     float poolHeight = 0.8;
     const float IOR_AIR = 1.0;
-    const float IOR_WATER = 1.133;
+    const float IOR_WATER = 1.333;
     
     
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
