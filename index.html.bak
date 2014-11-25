@@ -131,7 +131,7 @@
       //gl_FragColor = vec4(vVertexPosition,1.0);
     //gl_FragColor = vec4(hitCube,1.0);
 
-        color *= lightIntensity*diffuseTerm;
+        //color *= lightIntensity*diffuseTerm;
       gl_FragColor = vec4(color, 1.0);
     }
 </script>
@@ -176,7 +176,7 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;  //for normal transformations
-    uniform sampler2D uSamplerHeight;  //height texture
+    uniform sampler2D uSamplerHeight;  //height texture: [position.y, velocity.y, normal.x, normal.z]
 
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
@@ -184,10 +184,16 @@
 
     void main(void) {
 
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);//screen coord
+        vec4 data = texture2D(uSamplerHeight, aVertexPosition.xy * 0.5 + 0.5);
+       
+
+       // gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);//screen coord
         vVertexNormal = (uNmlMatrix * vec4(aVertexNormal, 0.0)).xyz;
         vVertexPositionWorld = (uMVMatrix * vec4(aVertexPosition.xzy, 1.0)).xyz;//world coord
         vVertexPosition = aVertexPosition;//gl_Position.xyz;
+
+        vVertexPosition.y += data.x;
+        gl_Position = uPMatrix * uMVMatrix * vec4(vVertexPosition, 1.0);
     }
 
 </script>
@@ -196,8 +202,10 @@
   precision mediump float;
    uniform sampler2D uSamplerTile;    //refracted ray shows pool tiles
     uniform samplerCube uSamplerSky;   //top water reflects skybox
-   
+    uniform sampler2D uSamplerHeight; 
+
     uniform vec3 uEyePosition;
+    uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
 
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
@@ -276,7 +284,7 @@
         } else {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           vec3 hit = origin + ray * t.y;
-          if (hit.y < 2.0 / 12.0) {
+          if (hit.y < 1.0 / 20.0) {
             color = getWallColor(hit);
           } else {
             color = textureCube(uSamplerSky, ray).rgb;
@@ -288,30 +296,43 @@
       }
 
     void main(void) {
+
         vec3 normal = normalize(vVertexNormal);
         vec3 eyeDir = normalize(vVertexPosition - uEyePosition);
-        vec3 reflectDir = reflect(eyeDir,normal);
+        
         vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
         vec3 abovewaterColor = vec3(0.25, 1.0, 1.25);
-        if(dot(eyeDir, normal) < 0.00001){
-          vec3 refractedDir = refract(eyeDir,normal, IOR_AIR / IOR_WATER); 
+
+        if(uProgNum == 0){   //above water
+         vec3 reflectDir = reflect(eyeDir,normal);
+          vec3 refractDir = refract(eyeDir,normal, IOR_AIR / IOR_WATER); 
           float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0)); 
-          vec3 refraColor = getRayColor(vVertexPosition, refractedDir, abovewaterColor);
-          vec3 refleColor = getRayColor(vVertexPosition, reflectDir, abovewaterColor);
-
+          vec3 refraColor = getRayColor(vVertexPosition, refractDir, underwaterColor);
+          vec3 refleColor = getRayColor(vVertexPosition, reflectDir, underwaterColor);
           gl_FragColor = vec4(mix(refleColor, refraColor, fresnel), 1.0);
-          //gl_FragColor = vec4(refraColor, 1.0);
-       }
-       else{
-          normal = -normal;
-          vec3 refractedDir = refract(eyeDir,normal, IOR_WATER/IOR_AIR ); 
-          float fresnel = mix(0.5, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0)); 
-          vec3 refraColor = getRayColor(vVertexPosition, refractedDir, abovewaterColor);
-          vec3 refleColor = getRayColor(vVertexPosition, reflectDir, abovewaterColor);
 
-          gl_FragColor = vec4(mix(refleColor, refraColor, (1.0 - fresnel) * length(refractedDir)), 1.0);         
-       } 
-   
+        }else if(uProgNum == 1){  //below water
+
+          normal = -normal;
+          vec3 reflectDir = reflect(eyeDir,normal);
+          vec3 refractDir = refract(eyeDir,normal, IOR_WATER/IOR_AIR ); 
+          float fresnel = mix(0.5, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0)); 
+          vec3 refraColor = getRayColor(vVertexPosition, refractDir, abovewaterColor);
+          vec3 refleColor = getRayColor(vVertexPosition, reflectDir, abovewaterColor);
+          gl_FragColor = vec4(mix(refleColor, refraColor, (1.0 - fresnel) * length(refractDir)), 1.0);   
+
+        }
+
+
+
+          
+          //gl_FragColor = vec4(refraColor, 1.0);
+
+       //vec3 heightcolor = texture2D(uSamplerHeight, vVertexPosition.xy).rgb;
+    
+        //gl_FragColor = texture2D(uSamplerHeight, vVertexPosition.xy);
+       //gl_FragColor = vec4(heightcolor,1.0);
+      // gl_FragColor = vec4(vVertexPosition,1.0);
     }
 
 </script>
@@ -320,16 +341,16 @@
 
  attribute vec3 aVertexPosition;
 
-  uniform mat4 uMVMatrix;
-  uniform mat4 uPMatrix;
+//  uniform mat4 uMVMatrix;
+ // uniform mat4 uPMatrix;
 
  varying vec2 vCoord;
 
     void main() {
-         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);  //remain screen coords
-    
-        vCoord = gl_Position.xy * 0.5+ 0.5;
-      //vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
+        // gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);  //remain screen coords
+        gl_Position = vec4(aVertexPosition, 1.0);
+        //vCoord = gl_Position.xy * 0.5+ 0.5;
+        vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
      }
 </script>
 
