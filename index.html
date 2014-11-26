@@ -11,7 +11,7 @@
 <script type="text/javascript" src="cubePool.js"></script>
 <script type="text/javascript" src="cubeSky.js"></script>
 <script type="text/javascript" src ="planeWater.js"></script>
-<script type="text/javascript" src ="GLU.js"></script>
+<script type="text/javascript" src ="screenQuad.js"></script>
 
 <script id="pool-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -179,7 +179,7 @@
     uniform sampler2D uSamplerHeight;  //height texture: [position.y, velocity.y, normal.x, normal.z]
 
     varying vec3 vVertexPosition;
-    varying vec3 vVertexNormal;
+    //varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
 
     void main(void) {
@@ -188,18 +188,19 @@
        
 
        // gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);//screen coord
-        vVertexNormal = (uNmlMatrix * vec4(aVertexNormal, 0.0)).xyz;
-        vVertexPositionWorld = (uMVMatrix * vec4(aVertexPosition.xzy, 1.0)).xyz;//world coord
-        vVertexPosition = aVertexPosition;//gl_Position.xyz;
+        //vVertexNormal = (uNmlMatrix * vec4(aVertexNormal, 0.0)).xyz;
+        //vVertexPositionWorld = (uMVMatrix * vec4(aVertexPosition.xzy, 1.0)).xyz;//world coord
 
-        vVertexPosition.y += data.x;
+        vVertexPosition = aVertexPosition.xzy;//gl_Position.xyz;
+
+        vVertexPosition.y += data.x;   //retrieve height
         gl_Position = uPMatrix * uMVMatrix * vec4(vVertexPosition, 1.0);
     }
 
 </script>
 
 <script id="water-fs" type="x-shader/x-fragment">
-  precision mediump float;
+   precision highp float;
    uniform sampler2D uSamplerTile;    //refracted ray shows pool tiles
     uniform samplerCube uSamplerSky;   //top water reflects skybox
     uniform sampler2D uSamplerHeight; 
@@ -208,7 +209,7 @@
     uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
 
     varying vec3 vVertexPosition;
-    varying vec3 vVertexNormal;
+   // varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
 
     float waterHeight = 0.0;
@@ -234,20 +235,21 @@
     vec3 normal;
 
     if (abs(point.x) > 0.999) {  //left,right wall
-      wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
-   
+    //  wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
+    // normal = vec3(-point.x, 0.0, 0.0);
+      wallColor = texture2D(uSamplerTile, point.yz * 0.5 + vec2(1.0, 0.5)).rgb;
       normal = vec3(-point.x, 0.0, 0.0);
 
     }
      else if (abs(point.z) > 0.999) {   //front,back wall
-      wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
-
+      //wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
+      //normal = vec3(0.0, 0.0, -point.z);
+      wallColor = texture2D(uSamplerTile, point.yx * 0.5 + vec2(1.0, 0.5)).rgb;
       normal = vec3(0.0, 0.0, -point.z);
 
     } 
     else {   //bottm wall
       wallColor = texture2D(uSamplerTile, point.xz * 0.5 + 0.5).rgb;
-
       normal = vec3(0.0, 1.0, 0.0);
     }
     
@@ -262,10 +264,10 @@
     //  scale += diffuse * caustic.r * 2.0 * caustic.g;
     //} else {
       
-      vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
-      diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
-      
-      scale += diffuse * 0.5;
+    vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+    diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
+    
+    scale += diffuse * 0.5;
     //}*/
     
     return wallColor * scale;
@@ -297,7 +299,8 @@
 
     void main(void) {
 
-        vec3 normal = normalize(vVertexNormal);
+        //vec3 normal = normalize(vVertexNormal);
+        vec3 normal = vec3(0,1,0);
         vec3 eyeDir = normalize(vVertexPosition - uEyePosition);
         
         vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
@@ -324,22 +327,20 @@
         }
 
 
-
-          
+//gl_FragColor = vec4(vVertexPosition,1.0);
           //gl_FragColor = vec4(refraColor, 1.0);
 
        //vec3 heightcolor = texture2D(uSamplerHeight, vVertexPosition.xy).rgb;
     
         //gl_FragColor = texture2D(uSamplerHeight, vVertexPosition.xy);
        //gl_FragColor = vec4(heightcolor,1.0);
-      // gl_FragColor = vec4(vVertexPosition,1.0);
     }
 
 </script>
 
 <script id="interact-vs" type="x-shader/x-vertex">
 
- attribute vec3 aVertexPosition;
+ attribute vec3 aVertexPosition;  // [-1, 1]
 
 //  uniform mat4 uMVMatrix;
  // uniform mat4 uPMatrix;
@@ -347,38 +348,60 @@
  varying vec2 vCoord;
 
     void main() {
-        // gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);  //remain screen coords
-        gl_Position = vec4(aVertexPosition, 1.0);
-        //vCoord = gl_Position.xy * 0.5+ 0.5;
+        gl_Position = vec4(aVertexPosition.xyz, 1.0);
         vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
      }
 </script>
 
 <script id="interact-ripple-fs" type="x-shader/x-fragment">
-  precision mediump float;
+  precision highp float;
 
- const float PI = 3.141592653589793;
+    const float PI = 3.141592653589793;
     uniform sampler2D uSamplerFloat;
-    uniform vec2 uCenter;
+    uniform vec2 uCenter;    //[-1,1]
 
    // uniform float radius;
    // uniform float strength;
-
-   float radius = 0.03;
-   float strength = 0.01;
+ 
+   float radius = 0.03;   //0.03
+   float strength = 0.001;   //0.01
 
     varying vec2 vCoord;
 
     void main() {
-     vec4 data = texture2D(uSamplerFloat, vCoord);
-    
-      float drop = max(0.0, 1.0 - length(uCenter * 0.5 + 0.5 - vCoord) / radius);
-      drop = 0.5 - cos(drop * PI) * 0.5;
-      data.x += drop * strength;
-      
-      gl_FragColor = data;
-    }
+      vec4 data = texture2D(uSamplerFloat, vCoord);
+      vec2 dragCoord = uCenter * 0.5 + 0.5;     //[0,1]
+      float dist = length(dragCoord - vCoord);    //[0,1]
+      float drag = max(0.0, 100.0 - dist/ radius);    
+    //  drag = 1.0 - cos(drag * PI);
+     //drag = cos(drag * PI);
+      data.x += drag * strength;   //add height
+      //data.x+= dist/1000.0;
 
+
+//data.x += uCenter.x /10.0;
+//data.x -= uCenter.y /10.0;
+      gl_FragColor = data;
+
+      //gl_FragColor = data+ vec4(0.01, 0.01, 0.01, 0.01);
+    }
+</script>
+
+ <script id="interact-normal-fs" type="x-shader/x-fragment">
+   /* precision mediump float;
+    uniform sampler2D texture;
+    uniform vec2 delta;
+    varying vec2 coord;*/
+    void main() {
+  /*
+      vec4 data = texture2D(texture, coord);
+    
+      vec3 dx = vec3(delta.x, texture2D(texture, vec2(coord.x + delta.x, coord.y)).r - info.r, 0.0);
+      vec3 dy = vec3(0.0, texture2D(texture, vec2(coord.x, coord.y + delta.y)).r - info.r, delta.y);
+      info.ba = normalize(cross(dy, dx)).xz;
+      
+      gl_FragColor = data;*/
+    }
 </script>
 
 </head> 
@@ -401,6 +424,7 @@
               <ul>
               <li>Right Mouse Button - rotate</li>
               <li>Left Mouse Button - interact </li>
+              <li>Middle Mouse Wheel - zoom </li>
    
               </ul>
               <br><strong>Features:</strong> <br>

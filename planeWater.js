@@ -31,16 +31,24 @@
 	   		var t = y / detailY;
 	   		for (var x = 0; x <= detailX; x++) {
 		      var s = x / detailX;
-		      plane.vertices[vertexPtr++] = 2 * s - 1.0;
+		     /* plane.vertices[vertexPtr++] = 2 * s - 1.0;
 		      plane.vertices[vertexPtr++] = waterHeight;
+		      plane.vertices[vertexPtr++] = 2 * t - 1.0;*/
+
+		      plane.vertices[vertexPtr++] = 2 * s - 1.0;
 		      plane.vertices[vertexPtr++] = 2 * t - 1.0;
+		      plane.vertices[vertexPtr++] = waterHeight;
 
 		      plane.texcoords[texcoordPtr++] = s;
 		      plane.texcoords[texcoordPtr++] = t;
 
+		    /*  plane.normals[normalPtr++] = 0;
+		      plane.normals[normalPtr++] = 1;
+		      plane.normals[normalPtr++] = 0;*/
+
+		      plane.normals[normalPtr++] = 0;
 		      plane.normals[normalPtr++] = 0;
 		      plane.normals[normalPtr++] = 1;
-		      plane.normals[normalPtr++] = 0;
 
 		      if (x < detailX && y < detailY) {
 		        var i = x + y * (detailX + 1);
@@ -55,11 +63,11 @@
 	    	}
 	  	}
 	  	plane.numIndices = plane.indices.length;
-	  	console.log("plane normal: " + plane.normals);
+	  /*	console.log("plane normal: " + plane.normals);
 	  	console.log("plane vertex: " + plane.vertices);
 	  	console.log("plane texcoord: " + plane.texcoords);
 	  	console.log("plane indice: " + plane.indices);
-	  	console.log("plane indice num: " + plane.numIndices);
+	  	console.log("plane indice num: " + plane.numIndices);*/
 	 	return plane;
 	}
 
