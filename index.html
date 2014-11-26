@@ -347,7 +347,7 @@
 
     void main() {
         gl_Position = vec4(aVertexPosition.xyz, 1.0);
-        vCoord = aVertexPosition.xy * 0.5 + 0.5;   //screen coords to texture coords
+        vCoord = aVertexPosition.xy; //* 0.5 + 0.5;   //screen coords to texture coords
      }
 </script>
 
@@ -362,20 +362,22 @@
    // uniform float strength;
  
    float radius = 0.03;   //0.03
-   float strength = 0.001;   //0.01
+   float strength = 0.01;   //0.01
 
     varying vec2 vCoord;
 
     void main() {
       vec4 data = texture2D(uSamplerFloat, vCoord);
       vec2 dragCoord = uCenter * 0.5 + 0.5;     //[0,1]
+      vec2 dis = dragCoord - vCoord;
+      //float dist = dis.x*dis.x + dis.y*dis.y;
       float dist = length(dragCoord - vCoord);    //[0,1]
-      float drag = max(0.0, 100.0 - dist/ radius);    
-    //  drag = 1.0 - cos(drag * PI);
-     //drag = cos(drag * PI);
-      data.x += drag * strength;   //add height
+      float drag = max(0.0, 1.0 - dist/ radius);    
+      drag = 0.5 - cos(drag * PI)*0.5;
+      //drag = cos(drag * PI);
+      //data.x += drag * strength;   //add height
       //data.x+= dist/1000.0;
-
+      data.x = length(vCoord);
 
 //data.x += uCenter.x /10.0;
 //data.x -= uCenter.y /10.0;

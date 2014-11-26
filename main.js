@@ -548,7 +548,7 @@
       //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
        //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-         // console.log("water plane hit at "+ point[0]+ "," + point[2]);
+          //console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
          // alert("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
           drawRipple(point[0],point[2]);
         }
@@ -563,6 +563,7 @@
         var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
    
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
+        //console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
            // console.log("water plane hit at "+ point[0]+ "," + point[2]);
          // alert("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
           drawRipple(point[0],point[2]);
@@ -722,6 +723,8 @@ function drawRipple(x,y){   //draw ripple with left mouse click, //TextureA as i
 
         x = x || 0;
         y = y || 0;
+        
+        console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
         
         initFrameBuffer();
         //resize viewport
