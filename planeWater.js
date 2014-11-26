@@ -1,17 +1,8 @@
 
 //(function(){
 	
-	var planeWater = function(detailX, detailY, waterHeight){
-	 // use LOD 4x4
-	/*
-	    vertices: [
-		],
-		texcoords:[
-		],
-		normals:[
-		],
-		indices: [
-		]*/
+	var plane = function(detailX, detailY, waterHeight){
+
 		var plane = {};
 		plane.vertices = [];
 		plane.normals = [];
@@ -63,13 +54,17 @@
 	    	}
 	  	}
 	  	plane.numIndices = plane.indices.length;
-	  /*	console.log("plane normal: " + plane.normals);
+	  	console.log("plane normal: " + plane.normals);
 	  	console.log("plane vertex: " + plane.vertices);
 	  	console.log("plane texcoord: " + plane.texcoords);
 	  	console.log("plane indice: " + plane.indices);
-	  	console.log("plane indice num: " + plane.numIndices);*/
+	  	console.log("plane indice num: " + plane.numIndices);
 	 	return plane;
 	}
 
-	var planeWater = planeWater();
+	var planeWater = plane(256, 256, 0.0);
+	var quadWater = plane(1, 1, 0.0);
 //}());
+
+
+
