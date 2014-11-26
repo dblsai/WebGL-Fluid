@@ -235,16 +235,14 @@
     vec3 normal;
 
     if (abs(point.x) > 0.999) {  //left,right wall
-    //  wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
-    // normal = vec3(-point.x, 0.0, 0.0);
-      wallColor = texture2D(uSamplerTile, point.yz * 0.5 + vec2(1.0, 0.5)).rgb;
+      wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
+    //  wallColor = texture2D(uSamplerTile, point.yz * 0.5 + vec2(1.0, 0.5)).rgb;
       normal = vec3(-point.x, 0.0, 0.0);
 
     }
      else if (abs(point.z) > 0.999) {   //front,back wall
-      //wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
-      //normal = vec3(0.0, 0.0, -point.z);
-      wallColor = texture2D(uSamplerTile, point.yx * 0.5 + vec2(1.0, 0.5)).rgb;
+      wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
+     // wallColor = texture2D(uSamplerTile, point.yx * 0.5 + vec2(1.0, 0.5)).rgb;
       normal = vec3(0.0, 0.0, -point.z);
 
     } 
@@ -286,7 +284,7 @@
         } else {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           vec3 hit = origin + ray * t.y;
-          if (hit.y < 1.0 / 20.0) {
+          if (hit.y < 1.0 / 2.0) {
             color = getWallColor(hit);
           } else {
             color = textureCube(uSamplerSky, ray).rgb;
