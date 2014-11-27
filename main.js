@@ -16,6 +16,7 @@
     var waterProg = [];
     var heightProg;
     var normalProg;
+    var simulateProg;
     
     //rendering
     var framebuffer;
@@ -224,7 +225,20 @@
         normalProg.samplerFloatUniform = gl.getUniformLocation(normalProg, "uSamplerFloat");
         normalProg.deltaUniform = gl.getUniformLocation(normalProg,"uDelta");
 
+        //-----------------------simulation-----------------------------------------------
+        simulateProg = gl.createProgram();
+        gl.attachShader(simulateProg, getShader(gl, "interact-vs") );
+        gl.attachShader(simulateProg, getShader(gl, "interact-simulate-fs") );
+        gl.linkProgram(simulateProg);
 
+        if (!gl.getProgramParameter(simulateProg, gl.LINK_STATUS)) {
+            alert("Could not initialize normal shader.");
+        }
+        gl.useProgram(simulateProg);
+
+        simulateProg.vertexPositionAttribute = gl.getAttribLocation(simulateProg, "aVertexPosition");
+        simulateProg.samplerFloatUniform = gl.getUniformLocation(simulateProg, "uSamplerFloat");
+        simulateProg.deltaUniform = gl.getUniformLocation(simulateProg,"uDelta");
     }
 
     function checkCanDrawToTexture(texture){
@@ -792,6 +806,46 @@ function drawNormal(){
 
 }
 
+function drawSimulation(){
+
+        initFrameBuffer();
+        //resize viewport
+        gl.viewport(0, 0, textureSize, textureSize);
+
+        //-------------------start rendering to texture--------------------------------------
+        gl.useProgram(simulateProg);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(simulateProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(simulateProg.vertexPositionAttribute);
+
+        gl.uniform2f(simulateProg.deltaUniform, 1/textureSize, 1/textureSize);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(simulateProg.samplerFloatUniform,0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+        //-------------- after rendering---------------------------------------------------
+        gl.disableVertexAttribArray(simulateProg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // reset viewport
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+        //swap TextureA  & TextureB 
+        var tmp = water.TextureA;
+        water.TextureA = water.TextureB;
+        water.TextureB = tmp;
+
+
+}
+
 function initFrameBuffer(){   // rendering to a texture, TextureB
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
@@ -896,6 +950,7 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
         lastTime = timeNow;
 
         drawNormal();
+        drawSimulation();
     }
 
 
@@ -951,10 +1006,15 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
        //initTexture(pool.Texture, "tile/tile2.jpg");
        water.TextureA = gl.createTexture();
       water.TextureB = gl.createTexture();
+      water.TextureC = gl.createTexture();
+      water.TextureD = gl.createTexture();
 
       var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
-      initFloatTexture(water.TextureA, gl.RGB, filter, gl.FLOAT, textureSize, textureSize );
-      initFloatTexture(water.TextureB, gl.RGB, filter, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureD, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+
       var successA = checkCanDrawToTexture(water.TextureA);
       var successB = checkCanDrawToTexture(water.TextureB);
 
