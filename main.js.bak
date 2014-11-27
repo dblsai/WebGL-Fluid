@@ -8,12 +8,14 @@
     var OES_texture_float_linear;
     var OES_texture_half_float;
     var OES_texture_half_float_linear;
+    var OES_standard_derivatives;
 
    // shader programs
     var poolProg;
     var skyProg;
     var waterProg = [];
-    var rippleProg;
+    var heightProg;
+    var causticProg;
     
     //rendering
     var framebuffer;
@@ -192,48 +194,37 @@
 
         }
 
-   /*  waterProg = gl.createProgram();
-        gl.attachShader(waterProg, getShader(gl, "water-vs") );
-        gl.attachShader(waterProg, getShader(gl, "water-fs") );
-        gl.linkProgram(waterProg);
-
-        if (!gl.getProgramParameter(waterProg, gl.LINK_STATUS)) {
-            alert("Could not initialize water shader.");
-        }
-        gl.useProgram(waterProg);
-
-        waterProg.vertexPositionAttribute = gl.getAttribLocation(waterProg, "aVertexPosition");
-        waterProg.vertexNormalAttribute = gl.getAttribLocation(waterProg, "aVertexNormal");
-        //waterProg.textureCoordAttribute = gl.getAttribLocation(waterProg, "aTextureCoord");
-
-        waterProg.pMatrixUniform = gl.getUniformLocation(waterProg, "uPMatrix");
-        waterProg.mvMatrixUniform = gl.getUniformLocation(waterProg, "uMVMatrix");
-        waterProg.samplerSkyUniform = gl.getUniformLocation(waterProg, "uSamplerSky");
-        waterProg.samplerTileUniform = gl.getUniformLocation(waterProg, "uSamplerTile");
-        waterProg.samplerHeightUniform = gl.getUniformLocation(waterProg, "uSamplerHeight");
-        waterProg.eyePositionUniform = gl.getUniformLocation(waterProg,"uEyePosition");
-        waterProg.NmlMatrixUniform = gl.getUniformLocation(waterProg, "uNmlMatrix");*/
         //-----------------------ripple------------------------------------------------
-        rippleProg = gl.createProgram();
-        gl.attachShader(rippleProg, getShader(gl, "interact-vs") );
-        gl.attachShader(rippleProg, getShader(gl, "interact-ripple-fs") );
-        gl.linkProgram(rippleProg);
+        heightProg = gl.createProgram();
+        gl.attachShader(heightProg, getShader(gl, "interact-vs") );
+        gl.attachShader(heightProg, getShader(gl, "interact-height-fs") );
+        gl.linkProgram(heightProg);
 
-        if (!gl.getProgramParameter(rippleProg, gl.LINK_STATUS)) {
+        if (!gl.getProgramParameter(heightProg, gl.LINK_STATUS)) {
             alert("Could not initialize ripple shader.");
         }
-        gl.useProgram(rippleProg);
+        gl.useProgram(heightProg);
 
-        rippleProg.vertexPositionAttribute = gl.getAttribLocation(rippleProg, "aVertexPosition");
-       // rippleProg.vertexNormalAttribute = gl.getAttribLocation(rippleProg, "aVertexNormal");
+        heightProg.vertexPositionAttribute = gl.getAttribLocation(heightProg, "aVertexPosition");
+       // heightProg.vertexNormalAttribute = gl.getAttribLocation(heightProg, "aVertexNormal");
         //waterProg.textureCoordAttribute = gl.getAttribLocation(waterProg, "aTextureCoord");
 
-       // rippleProg.pMatrixUniform = gl.getUniformLocation(rippleProg, "uPMatrix");
-        //rippleProg.mvMatrixUniform = gl.getUniformLocation(rippleProg, "uMVMatrix");
-        rippleProg.samplerFloatUniform = gl.getUniformLocation(rippleProg, "uSamplerFloat");
-        rippleProg.centerUniform = gl.getUniformLocation(rippleProg,"uCenter");
+       // heightProg.pMatrixUniform = gl.getUniformLocation(heightProg, "uPMatrix");
+        //heightProg.mvMatrixUniform = gl.getUniformLocation(heightProg, "uMVMatrix");
+        heightProg.samplerFloatUniform = gl.getUniformLocation(heightProg, "uSamplerFloat");
+        heightProg.centerUniform = gl.getUniformLocation(heightProg,"uCenter");
+        //-----------------------caustic------------------------------------------------
+        causticProg = gl.createProgram();
+        gl.attachShader(causticProg, getShader(gl, "caustic-vs") );
+        gl.attachShader(causticProg, getShader(gl, "cuastic-fs") );
+        gl.linkProgram(causticProg);
 
-
+        if (!gl.getProgramParameter(causticProg, gl.LINK_STATUS)) {
+            alert("Could not initialize caustic shader.");
+        }
+        //gl.useProgram(causticProg);
+        //causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
+        //causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
     }
 
     function checkCanDrawToTexture(texture){
@@ -410,23 +401,23 @@
         water.IBO.numItems = planeWater.numIndices;
 
          //----------quad--------------------------
-        quad.VBO = gl.createBuffer();
+    /*    quad.VBO = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(screenQuad.vertices), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quadWater.vertices), gl.STATIC_DRAW);
 
         quad.NBO = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, quad.NBO);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(screenQuad.normals), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quadWater.normals), gl.STATIC_DRAW);
 
         quad.TBO = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(screenQuad.texcoords), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quadWater.texcoords), gl.STATIC_DRAW);
      
         quad.IBO = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
        
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(screenQuad.indices), gl.STATIC_DRAW);
-        quad.IBO.numItems = 6;
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(quadWater.indices), gl.STATIC_DRAW);
+        quad.IBO.numItems = 6;*/
     }
 
 
@@ -548,9 +539,9 @@
       //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
        //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-          console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
+          //console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
          // alert("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
-          drawRipple(point[0],point[2]);
+          drawHeight(point[0],point[2]);
         }
     }
 
@@ -563,10 +554,10 @@
         var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
    
         if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-        console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
+        //console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
            // console.log("water plane hit at "+ point[0]+ "," + point[2]);
          // alert("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
-          drawRipple(point[0],point[2]);
+          drawHeight(point[0],point[2]);
         }
 
     }
@@ -675,7 +666,7 @@ function drawSkyBox() {
 function drawWater(){
 
         gl.enable(gl.CULL_FACE);
-        for(var i=0 ;i<2; i++){
+        for(var i=0 ;i<1; i++){
               
             gl.cullFace(i ? gl.BACK : gl.FRONT);
 
@@ -700,7 +691,7 @@ function drawWater(){
             gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
             gl.uniform1i(waterProg[i].samplerTileUniform,0);
 
-           // console.log(water.TextureA);
+    
             gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
             gl.uniform1i(waterProg[i].samplerHeightUniform,2);
@@ -719,32 +710,34 @@ function drawWater(){
       
 }
 
-function drawRipple(x,y){   //draw ripple with left mouse click, //TextureA as input, TextureB as output
+function drawHeight(x,y){   //TextureA as input, TextureB as output
 
         x = x || 0;
         y = y || 0;
         
+        console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
+        
         initFrameBuffer();
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
-        gl.useProgram(rippleProg);
+        gl.useProgram(heightProg);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
-        gl.vertexAttribPointer(rippleProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(rippleProg.vertexPositionAttribute);
+        gl.vertexAttribPointer(heightProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(heightProg.vertexPositionAttribute);
 
-      //  setMatrixUniforms(rippleProg);
-        gl.uniform2f(rippleProg.centerUniform, x, y);
+      //  setMatrixUniforms(heightProg);
+        gl.uniform2f(heightProg.centerUniform, x, y);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(rippleProg.samplerFloatUniform,0);
+        gl.uniform1i(heightProg.samplerFloatUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
      
 
-        gl.disableVertexAttribArray(rippleProg.vertexPositionAttribute);
+        gl.disableVertexAttribArray(heightProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -759,7 +752,30 @@ function drawRipple(x,y){   //draw ripple with left mouse click, //TextureA as i
         water.TextureB = tmp;
 
 }
+function drawCaustic(){
+        //resize viewport
+        initFrameBuffer();
+        
+        gl.viewport(0, 0, textureSize, textureSize);
+        gl.useProgram(causticProg);
+        
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(causticProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(causticProg.vertexPositionAttribute);
+        
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(causticProg.samplerHeightUniform,0);
+        
+        gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        
 
+        // reset viewport
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+}
 
 function initFrameBuffer(){   // rendering to a texture, TextureB
     framebuffer = framebuffer || gl.createFramebuffer();
@@ -905,6 +921,8 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
         OES_texture_float = gl.getExtension("OES_texture_float");
         OES_texture_half_float  = gl.getExtension("OES_texture_half_float");
         OES_texture_half_float_linear = gl.getExtension("OES_texture_half_float_linear");
+        OES_standard_derivatives = gl.getExtension("OES_standard_derivatives");
+        console.log(OES_standard_derivatives);
 
 
         initShaders();
