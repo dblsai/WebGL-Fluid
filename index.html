@@ -293,66 +293,94 @@
 </script>
 
 <script id="caustic-vs" type="x-shader/x-vertex">
-     //uniform sampler2D uSamplerWater;
-     //uniform vVertexPosition;
-    // varying vec3 vOldPos;
-    // varying vec3 vNewPos;
-    // varying vec3 vRay;
-    // float poolHeight = 0.8;
-    
- 
-    // vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {
-    //   vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));\
-    //   origin += ray * tcube.y;
-    //   float tplane = (-origin.y - 1.0) / refractedLight.y;
-    //   return origin + refractedLight * tplane;
-    // }
-    
+    uniform sampler2D uSamplerHeight;
+     uniform vec3 aVertexPosition;
+     varying vec3 oldPos;
+     varying vec3 newPos;
+     varying vec3 ray;
+     float poolHeight = 0.8;
+     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
+     const float IOR_AIR = 1.0;
+     const float IOR_WATER = 1.333;
+     
+     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
+        vec3 tMin = (cubeMin - origin) / ray;
+        vec3 tMax = (cubeMax - origin) / ray;
+        vec3 t1 = min(tMin, tMax);
+        vec3 t2 = max(tMin, tMax);
+        float tNear = max(max(t1.x, t1.y), t1.z);
+        float tFar = min(min(t2.x, t2.y), t2.z);
+        return vec2(tNear, tFar);
+    }
+     vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {
+        vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+        origin += ray * tcube.y;
+        float tplane = (-origin.y - 1.0) / refractedLight.y;
+        return origin + refractedLight * tplane;
+     }
+  
      void main() {
-    //   vec4 data = texture2D(uSamplerWater, vVertexPosition.xy * 0.5 + 0.5);
-    //   info.ba *= 0.5;  //normal
-    //   vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);
-    //   vec3 refractedLight = refract(-light, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
-    //   ray = refract(-light, normal, IOR_AIR / IOR_WATER);
-    //   oldPos = project(gl_Vertex.xzy, refractedLight, refractedLight);
-    //   newPos = project(gl_Vertex.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);
+       vec4 info = texture2D(uSamplerHeight, aVertexPosition.xy * 0.5 + 0.5);
+       info.ba *= 0.5;  //normal
+       vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);
+       
+       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+       ray = refract(-lightDir, normal, IOR_AIR / IOR_WATER);
+       oldPos = project(aVertexPosition.xzy, refractedLight, refractedLight);
+       newPos = project(aVertexPosition.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);
       
-    //   gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);
-     gl_Position = vec4(1.0);
+       gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);
+     //gl_Position = vec4(1.0);
+     
      }
    
 </script>
 
 <script id="caustic-fs" type="x-shader/x-fragment">
+    precision highp float;
+    #extension GL_OES_standard_derivatives : enable
      varying vec3 oldPos;
-    // varying vec3 newPos;
-    // varying vec3 ray;
-    // uniform int OES_standard_derivatives;
-    // vec3 lightPos = vec3(0.0,2.0,-2.0);
-    
+     varying vec3 newPos;
+     varying vec3 ray;
+     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
+     const float IOR_AIR = 1.0;
+     const float IOR_WATER = 1.333;
+     float poolHeight = 0.8;
+     //uniform int OES_standard_derivatives;
+     //vec3 lightPos = vec3(0.0,2.0,-2.0);
+    vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
+        vec3 tMin = (cubeMin - origin) / ray;
+        vec3 tMax = (cubeMax - origin) / ray;
+        vec3 t1 = min(tMin, tMax);
+        vec3 t2 = max(tMin, tMax);
+        float tNear = max(max(t1.x, t1.y), t1.z);
+        float tFar = min(min(t2.x, t2.y), t2.z);
+        return vec2(tNear, tFar);
+    }
      void main() {
-    //   float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));
-    //   float newArea = length(dFdx(newPos)) * length(dFdy(newPos));
-    //     // if(OES_standard_derivatives){
-    //     //   gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);
-    //     // }else{
-    //     //   gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
-    //     // }
-    //   gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);
-    //   vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+       
+       //if(OES_standard_derivatives > 0){
+          float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));
+          float newArea = length(dFdx(newPos)) * length(dFdy(newPos)); 
+          gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);
+       //}else{
+          //gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
+       //}
+     
+       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
       
-    //   vec3 dir = (sphereCenter - newPos) / sphereRadius;
-    //   vec3 area = cross(dir, refractedLight);
-    //   float shadow = dot(area, area);
-    //   float dist = dot(dir, -refractedLight);
-    //   shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);
-    //   shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
-    //   shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
-    //   gl_FragColor.g = shadow;
+       //vec3 dir = (sphereCenter - newPos) / sphereRadius;
+       //vec3 area = cross(dir, refractedLight);
+       //float shadow = dot(area, area);
+       //float dist = dot(dir, -refractedLight);
+       //shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);
+      //shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
+       //shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
+       //gl_FragColor.g = shadow;
       
-    //   vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
-    //   gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - 2.0 / 12.0)));
-     gl_FragColor.r = 1.0;
+       vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+       gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - 2.0 / 12.0)));
+     //gl_FragColor.r = 1.0;
      }
     
 </script>

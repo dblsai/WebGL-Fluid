@@ -15,15 +15,9 @@
     var skyProg;
     var waterProg = [];
     var heightProg;
-<<<<<<< HEAD
     var causticProg;
-=======
     var normalProg;
-<<<<<<< HEAD
->>>>>>> e8b2f4d9f327eed1ddf180901ecc0a06597ce74c
-=======
     var simulateProg;
->>>>>>> c58adc60f0df5525e340190bedb60bd25064bed7
     
     //rendering
     var framebuffer;
@@ -216,7 +210,7 @@
         heightProg.vertexPositionAttribute = gl.getAttribLocation(heightProg, "aVertexPosition");
         heightProg.samplerFloatUniform = gl.getUniformLocation(heightProg, "uSamplerFloat");
         heightProg.centerUniform = gl.getUniformLocation(heightProg,"uCenter");
-<<<<<<< HEAD
+
         //-----------------------caustic------------------------------------------------
         causticProg = gl.createProgram();
         gl.attachShader(causticProg, getShader(gl, "caustic-vs") );
@@ -226,10 +220,10 @@
         if (!gl.getProgramParameter(causticProg, gl.LINK_STATUS)) {
             alert("Could not initialize caustic shader.");
         }
-        //gl.useProgram(causticProg);
-        //causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
-        //causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
-=======
+        gl.useProgram(causticProg);
+        causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
+        causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
+        causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
 
          //-----------------------normal------------------------------------------------
         normalProg = gl.createProgram();
@@ -252,9 +246,7 @@
         gl.attachShader(simulateProg, getShader(gl, "interact-simulate-fs") );
         gl.linkProgram(simulateProg);
 
-<<<<<<< HEAD
->>>>>>> e8b2f4d9f327eed1ddf180901ecc0a06597ce74c
-=======
+
         if (!gl.getProgramParameter(simulateProg, gl.LINK_STATUS)) {
             alert("Could not initialize normal shader.");
         }
@@ -263,7 +255,7 @@
         simulateProg.vertexPositionAttribute = gl.getAttribLocation(simulateProg, "aVertexPosition");
         simulateProg.samplerFloatUniform = gl.getUniformLocation(simulateProg, "uSamplerFloat");
         simulateProg.deltaUniform = gl.getUniformLocation(simulateProg,"uDelta");
->>>>>>> c58adc60f0df5525e340190bedb60bd25064bed7
+
     }
 
     function checkCanDrawToTexture(texture){
@@ -808,6 +800,8 @@ function drawCaustic(){
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
         gl.uniform1i(causticProg.samplerHeightUniform,0);
+        
+        gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         
         gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);

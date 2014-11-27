@@ -220,10 +220,10 @@
         if (!gl.getProgramParameter(causticProg, gl.LINK_STATUS)) {
             alert("Could not initialize caustic shader.");
         }
-        //gl.useProgram(causticProg);
-        //causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
-        //causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
-
+        gl.useProgram(causticProg);
+        causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
+        causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
+        //causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
 
          //-----------------------normal------------------------------------------------
         normalProg = gl.createProgram();
@@ -800,6 +800,8 @@ function drawCaustic(){
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
         gl.uniform1i(causticProg.samplerHeightUniform,0);
+        
+        //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         
         gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
