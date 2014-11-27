@@ -15,6 +15,7 @@
     var skyProg;
     var waterProg = [];
     var heightProg;
+    var normalProg;
     
     //rendering
     var framebuffer;
@@ -193,25 +194,35 @@
 
         }
 
-        //-----------------------ripple------------------------------------------------
+        //-----------------------height------------------------------------------------
         heightProg = gl.createProgram();
         gl.attachShader(heightProg, getShader(gl, "interact-vs") );
         gl.attachShader(heightProg, getShader(gl, "interact-height-fs") );
         gl.linkProgram(heightProg);
 
         if (!gl.getProgramParameter(heightProg, gl.LINK_STATUS)) {
-            alert("Could not initialize ripple shader.");
+            alert("Could not initialize height shader.");
         }
         gl.useProgram(heightProg);
 
         heightProg.vertexPositionAttribute = gl.getAttribLocation(heightProg, "aVertexPosition");
-       // heightProg.vertexNormalAttribute = gl.getAttribLocation(heightProg, "aVertexNormal");
-        //waterProg.textureCoordAttribute = gl.getAttribLocation(waterProg, "aTextureCoord");
-
-       // heightProg.pMatrixUniform = gl.getUniformLocation(heightProg, "uPMatrix");
-        //heightProg.mvMatrixUniform = gl.getUniformLocation(heightProg, "uMVMatrix");
         heightProg.samplerFloatUniform = gl.getUniformLocation(heightProg, "uSamplerFloat");
         heightProg.centerUniform = gl.getUniformLocation(heightProg,"uCenter");
+
+         //-----------------------normal------------------------------------------------
+        normalProg = gl.createProgram();
+        gl.attachShader(normalProg, getShader(gl, "interact-vs") );
+        gl.attachShader(normalProg, getShader(gl, "interact-normal-fs") );
+        gl.linkProgram(normalProg);
+
+        if (!gl.getProgramParameter(normalProg, gl.LINK_STATUS)) {
+            alert("Could not initialize normal shader.");
+        }
+        gl.useProgram(normalProg);
+
+        normalProg.vertexPositionAttribute = gl.getAttribLocation(normalProg, "aVertexPosition");
+        normalProg.samplerFloatUniform = gl.getUniformLocation(normalProg, "uSamplerFloat");
+        normalProg.deltaUniform = gl.getUniformLocation(normalProg,"uDelta");
 
 
     }
@@ -585,7 +596,7 @@
         drawWater();
     }
 
-function drawPool(){
+    function drawPool(){
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.useProgram(poolProg);
 
@@ -706,6 +717,8 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         initFrameBuffer();
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
+
+        //-------------------start rendering to texture--------------------------------------
         gl.useProgram(heightProg);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
@@ -723,6 +736,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
      
 
+        //-------------- after rendering---------------------------------------------------
         gl.disableVertexAttribArray(heightProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
@@ -739,6 +753,44 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
 }
 
+
+function drawNormal(){
+        initFrameBuffer();
+        //resize viewport
+        gl.viewport(0, 0, textureSize, textureSize);
+
+        //-------------------start rendering to texture--------------------------------------
+        gl.useProgram(normalProg);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(normalProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(normalProg.vertexPositionAttribute);
+
+        gl.uniform2f(normalProg.deltaUniform, 1/textureSize, 1/textureSize);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(normalProg.samplerFloatUniform,0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+        //-------------- after rendering---------------------------------------------------
+        gl.disableVertexAttribArray(normalProg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // reset viewport
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+        //swap TextureA  & TextureB 
+        var tmp = water.TextureA;
+        water.TextureA = water.TextureB;
+        water.TextureB = tmp;
+
+}
 
 function initFrameBuffer(){   // rendering to a texture, TextureB
     framebuffer = framebuffer || gl.createFramebuffer();
@@ -842,6 +894,8 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
            //zRot += (90 * elapsed) / 1000.0;
         }
         lastTime = timeNow;
+
+        drawNormal();
     }
 
 

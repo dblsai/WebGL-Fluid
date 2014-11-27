@@ -193,7 +193,7 @@
 
         vVertexPosition = aVertexPosition.xzy;//gl_Position.xyz;
 
-        vVertexPosition.y += data.x;   //retrieve height
+        vVertexPosition.y += data.r;   //retrieve height
         gl_Position = uPMatrix * uMVMatrix * vec4(vVertexPosition, 1.0);
     }
 
@@ -298,7 +298,10 @@
     void main(void) {
 
         //vec3 normal = normalize(vVertexNormal);
-        vec3 normal = vec3(0,1,0);
+        //vec3 normal = vec3(0,1,0);
+        vec2 coord = vVertexPosition.xz * 0.5 + 0.5;
+        vec4 data = texture2D(uSamplerHeight, coord);
+        vec3 normal = vec3(data.g, sqrt(1.0 - dot(data.gb, data.gb)), data.b);
         vec3 eyeDir = normalize(vVertexPosition - uEyePosition);
         
         vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
@@ -446,41 +449,25 @@
     void main() {
       vec4 data = texture2D(uSamplerFloat, vCoord);
       vec2 dragCoord = uCenter * 0.5 + 0.5;     //[0,1]
-
-     float dist = length(dragCoord - vCoord);    //[0,1]
-      //data.x += dist;
+      float dist = length(dragCoord - vCoord);    //[0,1]
       float drag = max(0.0, 1.0 - dist/ radius);  
-     drag = 0.5 - cos(drag * PI)*0.5;
-     //drag = cos(drag * PI);
-      //data.x += drag * strength;   //add height
-      //data.x+= dist/1000.0;
-// drag = clamp(rand(vCoord), 0.0, 0.2);
-// drag = 0.5 - cos(drag * PI)*0.5;
-     data.x += drag* strength;
-
-
-//data.x += uCenter.x /10.0;
-//data.x -= uCenter.y /10.0;
+      drag = 0.5 - cos(drag * PI)*0.5;
+      data.x += drag* strength;
       gl_FragColor = data;
-
-      //gl_FragColor = data+ vec4(0.01, 0.01, 0.01, 0.01);
     }
 </script>
 
  <script id="interact-normal-fs" type="x-shader/x-fragment">
-   /* precision mediump float;
-    uniform sampler2D texture;
-    uniform vec2 delta;
-    varying vec2 coord;*/
+    precision mediump float;
+    uniform sampler2D uSamplerFloat;
+    uniform vec2 uDelta;
+    varying vec2 vCoord;
     void main() {
-  /*
-      vec4 data = texture2D(texture, coord);
-    
-      vec3 dx = vec3(delta.x, texture2D(texture, vec2(coord.x + delta.x, coord.y)).r - info.r, 0.0);
-      vec3 dy = vec3(0.0, texture2D(texture, vec2(coord.x, coord.y + delta.y)).r - info.r, delta.y);
-      info.ba = normalize(cross(dy, dx)).xz;
-      
-      gl_FragColor = data;*/
+      vec4 data = texture2D(uSamplerFloat, vCoord);
+      vec3 dx = vec3(uDelta.x, texture2D(uSamplerFloat, vec2(vCoord.x + uDelta.x, vCoord.y)).r - data.r, 0.0);
+      vec3 dy = vec3(0.0, texture2D(uSamplerFloat, vec2(vCoord.x, vCoord.y + uDelta.y)).r - data.r, uDelta.y);
+      data.gb = normalize(cross(dy, dx)).xz;
+      gl_FragColor = data;
     }
 </script>
 
