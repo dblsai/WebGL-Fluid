@@ -147,7 +147,8 @@
         poolProg.mvMatrixUniform = gl.getUniformLocation(poolProg, "uMVMatrix");
         poolProg.NmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
         poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
-
+        poolProg.samplerHeightUniform = gl.getUniformLocation(poolProg, "uSamplerHeight");
+        poolProg.samplerCausticUniform = gl.getUniformLocation(poolProg, "uSamplerCaustic");
 
 
      //-----------------------sky------------------------------
@@ -168,7 +169,6 @@
         skyProg.samplerSkyUniform = gl.getUniformLocation(skyProg, "uSamplerSky");
 
         //-----------------------water---------------------------------
-
         for(var i=0; i<2; i++){
 
             waterProg[i] = gl.createProgram();
@@ -190,6 +190,7 @@
             waterProg[i].samplerSkyUniform = gl.getUniformLocation(waterProg[i], "uSamplerSky");
             waterProg[i].samplerTileUniform = gl.getUniformLocation(waterProg[i], "uSamplerTile");
             waterProg[i].samplerHeightUniform = gl.getUniformLocation(waterProg[i], "uSamplerHeight");
+            waterProg[i].samplerCausticUniform = gl.getUniformLocation(waterProg[i], "uSamplerCaustic");
             waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
             waterProg[i].NmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
             waterProg[i].ProgNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
@@ -651,6 +652,14 @@
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
         gl.uniform1i(poolProg.samplerTileUniform, 0);
+        
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(poolProg.samplerHeightUniform,2);
+        
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+        gl.uniform1i(poolProg.samplerCausticUniform, 1);
 
         setMatrixUniforms(poolProg);
          gl.uniformMatrix4fv(poolProg.NmlMatrixUniform, false, nmlMatrix);
@@ -726,6 +735,11 @@ function drawWater(){
             gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
             gl.uniform1i(waterProg[i].samplerHeightUniform,2);
+            
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+            gl.uniform1i(waterProg[i].samplerCausticUniform,3);
+
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
             gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -788,7 +802,25 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 }
 function drawCaustic(){
         //resize viewport
-        initFrameBuffer();
+        framebuffer = framebuffer || gl.createFramebuffer();
+        renderbuffer = renderbuffer || gl.createRenderbuffer();
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+
+        framebuffer.width = textureSize;
+        framebuffer.height = textureSize;
+
+        if (textureSize!= renderbuffer.width ||textureSize!= renderbuffer.height) {
+          renderbuffer.width =textureSize;
+          renderbuffer.height = textureSize;
+          gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
+        }
+
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, water.TextureC, 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
+          alert("Rendering to this texture is not supported");
+        }
         
         gl.viewport(0, 0, textureSize, textureSize);
         gl.useProgram(causticProg);
@@ -801,11 +833,14 @@ function drawCaustic(){
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
         gl.uniform1i(causticProg.samplerHeightUniform,0);
         
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+        
         //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         
         gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
         // reset viewport
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
