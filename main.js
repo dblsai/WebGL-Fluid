@@ -861,14 +861,12 @@ function drawCaustic(){
         // gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
         // gl.uniform1i(causticProg.samplerFloatUniform,0);
 
-
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
         
         
         //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         
-
         gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
