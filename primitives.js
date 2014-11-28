@@ -349,3 +349,33 @@ var sphereObj = createSphere(0.25, 12, 12);
 
   var planeWater = plane(256, 256, 0.0);
   var quadWater = plane(1, 1, 0.0);
+
+
+  //screen quad geometry
+
+var screenQuad ={
+  numIndices : 6,
+
+    vertices: [
+      -1.0, -1.0, 0.0,
+      1.0, -1.0, 0.0,
+      1.0, 1.0, 0.0,
+      -1.0, 1.0, 0.0
+    ],
+    normals: [
+      0.0, 0.0, 1.0,
+      0.0, 0.0, 1.0,
+      0.0, 0.0, 1.0,
+      0.0, 0.0, 1.0
+    ],
+    texcoords:[
+      1.0, 0.0,
+      0.0, 0.0,
+      0.0, 1.0,
+      1.0, 1.0
+    ],
+    indices: [
+      0, 1, 3,
+      3, 1, 2
+    ]
+};
