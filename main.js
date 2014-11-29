@@ -224,8 +224,10 @@
             waterProg[i].samplerHeightUniform = gl.getUniformLocation(waterProg[i], "uSamplerHeight");
             waterProg[i].samplerCausticUniform = gl.getUniformLocation(waterProg[i], "uSamplerCaustic");
             waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
-            waterProg[i].NmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
-            waterProg[i].ProgNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
+            waterProg[i].nmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
+            waterProg[i].progNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
+            waterProg[i].sphereCenterUniform = gl.getUniformLocation(waterProg[i], "uSphereCenter");
+            waterProg[i].sphereRadiusUniform = gl.getUniformLocation(waterProg[i], "uSphereRadius");
 
         }
 
@@ -578,6 +580,10 @@ function initBuffers(model, primitive){
 
             if(vec3.length(offsetHit)>0.0){   //change location
                 vec3.add(sphere.center, offsetHit);
+                //make sure the sphere is in the boundary of pool
+                sphere.center[0] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[0]));
+                sphere.center[1] = Math.max(sphere.radius - 1.0, Math.min(10, sphere.center[1]));
+                sphere.center[2] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[2]));
                 //console.log("drag center: " + vec3.str(sphere.center));
             }
 
@@ -742,8 +748,11 @@ function drawWater(){
             gl.enableVertexAttribArray(waterProg[i].vertexNormalAttribute);
 
             setMatrixUniforms(waterProg[i]);
-            gl.uniformMatrix4fv(waterProg[i].NmlMatrixUniform, false, nmlMatrix);
-            gl.uniform1i(waterProg[i].ProgNumUniform, i);
+            gl.uniformMatrix4fv(waterProg[i].nmlMatrixUniform, false, nmlMatrix);
+            gl.uniform1i(waterProg[i].progNumUniform, i);
+
+            gl.uniform3fv(waterProg[i].sphereCenterUniform, sphere.center);
+            gl.uniform1f(waterProg[i].sphereRadiusUniform, sphere.radius);
 
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);

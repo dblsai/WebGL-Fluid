@@ -19,7 +19,7 @@
     uniform mat4 uNmlMatrix;
     varying vec2 vTextureCoord;
     varying vec3 vVertexPosition;
-   varying vec3 vVertexPositionMC;
+    varying vec3 vVertexPositionMC;
     varying vec3 vVertexNormal;
     void main(void) {
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
@@ -220,20 +220,38 @@
 
 <script id="water-fs" type="x-shader/x-fragment">
    precision highp float;
-   uniform sampler2D uSamplerTile;    //refracted ray shows pool tiles
+
+    uniform sampler2D uSamplerTile;    //refracted ray shows pool tiles
     uniform samplerCube uSamplerSky;   //top water reflects skybox
     uniform sampler2D uSamplerHeight; 
     uniform sampler2D uSamplerCaustic;
     uniform vec3 uEyePosition;
     uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
+    uniform float uSphereRadius;
+    uniform vec3 uSphereCenter;
+
     varying vec3 vVertexPosition;
    // varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
+
     float waterHeight = 0.0;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
     float poolHeight = 0.8;
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
+
+    float intersectSphere(vec3 origin, vec3 ray, vec3 sphereCenter, float sphereRadius) {
+      vec3 toSphere = origin - sphereCenter;
+      float a = dot(ray, ray);
+      float b = 2.0 * dot(toSphere, ray);
+      float c = dot(toSphere, toSphere) - sphereRadius * sphereRadius;
+      float discriminant = b*b - 4.0*a*c;
+      if (discriminant > 0.0) {
+        float t = (-b - sqrt(discriminant)) / (2.0 * a);
+        if (t > 0.0) return t;
+      }
+      return 1.0e6;
+  }
     
     
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
@@ -245,6 +263,28 @@
         float tFar = min(min(t2.x, t2.y), t2.z);
         return vec2(tNear, tFar);
     }
+
+
+    vec3 getSphereColor(vec3 point,  vec3 sphereCenter, float sphereRadius) {
+      vec3 color = vec3(0.5);
+
+      color *= 1.0 - 0.9 / pow((1.0 + sphereRadius - abs(point.x)) / sphereRadius, 3.0);
+      color *= 1.0 - 0.9 / pow((1.0 + sphereRadius - abs(point.z)) / sphereRadius, 3.0);
+      color *= 1.0 - 0.9 / pow((point.y + 1.0 + sphereRadius) / sphereRadius, 3.0);
+
+      vec3 sphereNormal = (point - sphereCenter) / sphereRadius;
+      vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+      float diffuse = max(0.0, dot(-refractedLight, sphereNormal)) * 0.5;
+      vec4 info = texture2D(uSamplerHeight, point.xz * 0.5 + 0.5);
+      if (point.y < info.r) {
+        //vec4 caustic = texture2D(causticTex, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+       // diffuse *= caustic.r * 4.0;
+      }
+      color += diffuse;
+      return color;
+  }
+
+
   vec3 getWallColor(vec3 point) {
     float scale = 0.5;
     vec3 wallColor = vec3(1.0, 0.0, 0.0);
@@ -285,11 +325,10 @@
   }
     vec3 getRayColor(vec3 origin, vec3 ray, vec3 waterColor) {
         vec3 color;
-        //float q = intersectSphere(origin, ray, sphereCenter, sphereRadius);
-        //if (q < 1.0e6) {
-          //color = getSphereColor(origin + ray * q);
-        //} else 
-        if (ray.y < 0.0) {
+        float q = intersectSphere(origin, ray, uSphereCenter, uSphereRadius);
+        if (q < 1.0e6) {
+          color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
+        } else if (ray.y < 0.0) {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           color = getWallColor(origin + ray * t.y);
         } else {
