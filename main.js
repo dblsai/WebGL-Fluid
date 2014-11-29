@@ -34,9 +34,8 @@
     var nmlMatrix = mat4.create();
     var eyePos;
     var radius = 4.0;
-    //var azimuth = 0.5*Math.PI;
-    var azimuth = 0.0;
-    var elevation = 0.5;
+    var azimuth = 0.0;//0.5*Math.PI;
+    var elevation = 0.0;//0.5;
     var fov = 45.0;
     var eye = sphericalToCartesian(radius, azimuth, elevation);
     var center = [0.0, 0.0, 0.0];
@@ -65,8 +64,9 @@
     var lastMouseY = null;
 
     var preHit = vec3.create(0.0);
-    var nxtHit = vec3.create(0.0);
+   //var nxtHit = vec3.create(0.0);
     var viewportNormal = vec3.create(0.0);
+    var mode = 0;   // 0- mouse click interaction, 1-sphere interaction
 
 
     var pool = {};    //a cube without top plane
@@ -518,23 +518,23 @@ function initBuffers(model, primitive){
         var ray = vec3.create();
         ray = rayEyeToPixel(x,y);
 
-        var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
+        var hit = vec3.create();
+        hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
         if(hit!= null){   //sphere interaction
-            preHit = hit.point;
-            console.log("hit sphere at " + vec3.str(preHit));
+            preHit = hit;
             viewportNormal = rayEyeToPixel(gl.viewportWidth / 2.0, gl.viewportHeight / 2.0);
+            vec3.negate(viewportNormal);
+            mode = 1;
+            // console.log("--------------hit sphere at " + vec3.str(preHit));
+            // console.log("--------------viewportNormal="+vec3.str(viewportNormal));
         }
         else{   //mouse directioin interaction
             var scale = -tracer.eye[1] / ray[1];
             //move in the direction of ray, until gets the 'y=waterHeight' plane
             var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
-       
-          //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
-           //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
             if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-              //console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
-             // alert("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
               drawHeight(point[0],point[2]);
+              mode = 0;
             }
         }
     }
@@ -543,48 +543,45 @@ function initBuffers(model, primitive){
 
         var ray = vec3.create();
         ray = rayEyeToPixel(x,y);
-
-        var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
-        if(hit!= null){   //sphere interaction, move sphere around
-            var theEye = vec3.create(tracer.eye);
-            var preRay = vec3.create(theEye);
-            var nxtRay = vec3.create(ray);
-
-            vec3.subtract(preRay, preHit);
-            var t1 = vec3.dot(viewportNormal, preRay);  
-            var t2 = vec3.dot(viewportNormal, nxtRay);
-            var t = -t1/t2;
-            vec3.scale(nxtRay, t)
-        
-            vec3.add(theEye, nxtRay, nxtHit);
-            var offsetHit = vec3.create(nxtHit);
-            vec3.subtract(offsetHit, preHit);
-          
-
-        
-            if(vec3.length(offsetHit)>0.0000001){
-                console.log("pre ray: " + vec3.str(preRay));
-                console.log("nxt ray: " + vec3.str(nxtRay));
-
-                console.log("pre hit: " + vec3.str(preHit));
-                console.log("nxt hit: " + vec3.str(nxtHit));
-                 console.log("hit offset: " + vec3.str(offsetHit));
-                //sphere.center[1] += 0.01; 
-                sphere.center = vec3.add(sphere.center, offsetHit);
-                // sphere.center[0] = Math.max(sphere.radius - 1, Math.min(1 - sphere.radius, sphere.center[0]));
-                // sphere.center[1] = Math.max(sphere.radius - 1, Math.min(10, sphere.center[1]));
-                // sphere.center[2] = Math.max(sphere.radius- 1, Math.min(1 - sphere.radius, sphere.center[0]));
-                preHit = nxtHit;
-                console.log("moving to new center: " + vec3.str(sphere.center));
-            }
-        }
-        else{   //direction mouse interaction
+        if(mode == 0){   //direct mouse interaction
             var scale = -tracer.eye[1] / ray[1];
             var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
        
             if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
               drawHeight(point[0],point[2]);
             }
+        }
+        //var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
+        //if(hit!= null){   //sphere interaction, move sphere around
+        if(mode == 1){  //sphere interaction, move sphere around
+            var theEye = vec3.create(tracer.eye);
+            var preRay = vec3.create(preHit);
+            var nxtRay = vec3.create(ray);
+
+            vec3.subtract(preRay, theEye);   //preRay = preHit - eye
+            var t1 = vec3.dot(viewportNormal, preRay);  
+            var t2 = vec3.dot(viewportNormal, nxtRay);
+            var t = t1/t2;
+            vec3.scale(nxtRay, t);
+            // console.log("-----------------------");
+            // console.log("pre ray: " + vec3.str(preRay));
+            // console.log("nxt ray: " + vec3.str(nxtRay));
+  
+            var nxtHit = vec3.create();
+            nxtHit = vec3.add(theEye, nxtRay);
+            var offsetHit = vec3.create(nxtHit);
+            vec3.subtract(offsetHit, preHit);   //offsetHit = nxtHit - preHit
+
+            // console.log("pre hit: " + vec3.str(preHit));
+            // console.log("nxt hit: " + vec3.str(nxtHit));
+            // console.log("hit offset: " + vec3.str(offsetHit));
+
+            if(vec3.length(offsetHit)>0.0){   //change location
+                vec3.add(sphere.center, offsetHit);
+                //console.log("drag center: " + vec3.str(sphere.center));
+            }
+
+            preHit = nxtHit;
         }
 
     }
@@ -785,7 +782,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         x = x || 0;
         y = y || 0;
         
-        console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
+       // console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
         
         initFrameBuffer();
         //resize viewport
@@ -957,6 +954,46 @@ function drawSimulation(){
 
 function drawInteraction(){
 
+        initFrameBuffer();
+        //resize viewport
+        gl.viewport(0, 0, textureSize, textureSize);
+
+        //-------------------start rendering to texture--------------------------------------
+        gl.useProgram(objectProg);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(objectProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(objectProg.vertexPositionAttribute);
+
+       // console.log("old center: "+ vec3.str(sphere.oldcenter));
+       // console.log("new center: "+ vec3.str(sphere.center));
+        gl.uniform3fv(objectProg.newCenterUniform, sphere.center);
+        gl.uniform3fv(objectProg.oldCenterUniform, sphere.oldcenter);
+        gl.uniform1f(objectProg.radiusUniform, sphere.radius);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(objectProg.samplerFloatUniform,0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+        //-------------- after rendering---------------------------------------------------
+        gl.disableVertexAttribArray(objectProg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // reset viewport
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+        //swap TextureA  & TextureB 
+        var tmp = water.TextureA;
+        water.TextureA = water.TextureB;
+        water.TextureB = tmp;
+
+
 }
 
 function initFrameBuffer(){   // rendering to a texture, TextureB
@@ -1033,24 +1070,28 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
 
 function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersection
   var offset = vec3.create();
-  var newRay = vec3.create(ray);
-  var newCenter = vec3.create(center);
-  var newOrigin = vec3.create(origin);
-  vec3.subtract(newOrigin, newCenter, offset);
-  var a = vec3.dot(newRay, newRay);
-  var b = 2.0 * vec3.dot(newRay, offset);
-  var c = vec3.dot(offset, offset)- radius * radius;
-  var discriminant = b * b - 4 * a * c;
-//console.log("origin: " + vec3.str(origin) + "\nray: "+vec3.str(ray) + "\ncenter" + vec3.str(center)+"\nradius"+vec3.str(radius));
+  var theRay = vec3.create(ray);
+  var theCenter = vec3.create(center);
+  var theOrigin = vec3.create(origin);
+  vec3.subtract(theOrigin, theCenter, offset);
+//console.log("origin: " + vec3.str(theOrigin) + "\nray: "+vec3.str(theRay) + "\ncenter" + vec3.str(theCenter)+"\noffset"+vec3.str(offset));
+  var a = vec3.dot(theRay, theRay);
+  var b = 2.0 * vec3.dot(theRay, offset);
+  var c = vec3.dot(offset, offset) - radius * radius;
+  var discriminant = b * b - 4.0* a * c;
+
 //console.log("a: " + a + "\nb: "+b + "\nc" + c+"\ndiscriminant"+discriminant);
-  if (discriminant > 0) {
-    var hit = {};
-    hit.t = (-b - Math.sqrt(discriminant)) / (2 * a);
-    hit.point = vec3.create();
-    hit.point =  vec3.add(newOrigin, vec3.scale(newRay, hit.t));
-    hit.normal =  vec3.create();
-    hit.normal = vec3.subtract(hit.point, newCenter);
-    hit.normal = vec3.scale(hit.normal, 1.0/radius);
+  if (discriminant > 0.0) {
+    t = (-b - Math.sqrt(discriminant)) / (2.0 * a);
+    hit = vec3.create();
+    vec3.scale(theRay, t, theRay);
+    //console.log("the scaled ray: "+ vec3.str(theRay));
+    vec3.add(theOrigin, theRay, hit);
+   // console.log("hit t: " + t+"\nhit point: " + vec3.str(hit));
+    normal =  vec3.create(hit);
+    normal = vec3.subtract(normal, theCenter);
+    normal = vec3.scale(normal, 1.0/radius);
+    //console.log("hit point: " + vec3.str(hit) + "\nhit normal: "+vec3.str(normal));
     return hit;
   }
   return null;
@@ -1071,7 +1112,10 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
         drawSimulation();
         drawSimulation();
         drawCaustic();
-       // drawInteraction();
+        drawInteraction();
+       // console.log("old center: "+ vec3.str(sphere.oldcenter));
+       // console.log("new center: "+ vec3.str(sphere.center));
+        sphere.oldcenter = vec3.create(sphere.center);
     }
 
 
@@ -1126,6 +1170,7 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       initBuffers(water, planeWater);
       initBuffers(quad, screenQuad);
       sphere.center = vec3.create(0.0,0.0,0.0);
+      sphere.oldcenter = vec3.create(0.0,0.0,0.0);
       sphere.radius = sphereObj.radius;
      // console.log("sphere radius: "+sphere.radius);
 

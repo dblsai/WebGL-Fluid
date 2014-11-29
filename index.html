@@ -516,10 +516,12 @@
 
 <script id="interact-sphere-fs" type="x-shader/x-fragment">
     precision mediump float;
+
     uniform sampler2D uSamplerFloat;
     uniform vec3 uOldCenter;
     uniform vec3 uNewCenter;
     uniform float uRadius;
+
     varying vec2 vCoord;
     
     float volumeInSphere(vec3 center) {
@@ -535,6 +537,7 @@
       vec4 data = texture2D(uSamplerFloat, vCoord);
       data.r += volumeInSphere(uOldCenter);
       data.r -= volumeInSphere(uNewCenter);
+      //data.r += 0.1;
       gl_FragColor = data;
     }
 </script>
