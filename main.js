@@ -1122,7 +1122,7 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       //  initBuffers();
       initBuffers(sky, cubeSky);
       initBuffers(pool, cubePool);
-      initBuffers(sphere, sphereObj);
+      //initBuffers(sphere, sphereObj);
       initBuffers(water, planeWater);
       initBuffers(quad, screenQuad);
       sphere.center = vec3.create(0.0,0.0,0.0);

@@ -8,10 +8,7 @@
 <script type="text/javascript" src="glMatrix-0.9.5.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script type="text/javascript" src="main.js"></script>
-<script type="text/javascript" src="cubePool.js"></script>
-<script type="text/javascript" src="cubeSky.js"></script>
-<script type="text/javascript" src ="planeWater.js"></script>
-<script type="text/javascript" src ="screenQuad.js"></script>
+<script type="text/javascript" src ="primitives.js"></script>
 
 <script id="pool-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -98,7 +95,7 @@
     //}
     
     //return wallColor * scale;
-    return vec3(1.0);
+    return vec3(caustic.r);
    //return wallColor;
   }
     void main(void) {
@@ -117,6 +114,8 @@
       //gl_FragColor = vec4(vVertexPosition,1.0);
     //gl_FragColor = vec4(hitCube,1.0);
         //color *= lightIntensity*diffuseTerm;
+
+       // color = texture2D(uSamplerCaustic,vVertexPosition.xz * 0.5 + 0.5).rgb;
       gl_FragColor = vec4(color, 1.0);
     }
 </script>
@@ -147,6 +146,50 @@
     }
 </script>
 
+<script id="obj-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+   // attribute vec2 aTextureCoord;
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform vec3 uCenter;
+   // uniform vec3 uRadius;
+   // varying vec2 vTextureCoord;
+    varying vec3 vVertexPosition;
+    varying vec3 vVertexNormal;
+    void main(void) {
+        vVertexPosition = uCenter + aVertexPosition;
+        // vVertexPosition = aVertexPosition;
+        gl_Position = uPMatrix * uMVMatrix * vec4(vVertexPosition, 1.0);
+       // vTextureCoord = aTextureCoord;
+       
+        vVertexNormal = aVertexNormal;
+    }
+</script>
+
+<script id="obj-fs" type="x-shader/x-fragment">
+    precision mediump float;
+    //uniform sampler2D uSamplerSphere;
+    //varying vec2 vTextureCoord;
+   // uniform vec3 uDiffuseColor;
+    varying vec3 vVertexPosition;
+    varying vec3 vVertexNormal;
+    vec3 lightPos = vec3(0.0,6.0,0.0);
+    vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
+
+    void main(void) {
+        //gl_FragColor = texture2D(uSamplerSphere, vTextureCoord);
+        vec3 lightDir = normalize(vVertexPosition-lightPos);
+        float diffuseTerm = clamp(dot(-lightDir, vVertexNormal), 0.35, 1.0);
+        vec3 diffuseColor = vec3(1.0, 1.0, 1.0);
+        vec3 color = diffuseColor*diffuseTerm;
+        if(vVertexPosition.y < 0.0){
+          color *= underwaterColor;
+        }
+         gl_FragColor = vec4(color,1.0);
+    }
+</script>
+
 <script id="water-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
     //attribute vec2 aTextureCoord;
@@ -154,7 +197,7 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;  //for normal transformations
-    uniform sampler2D uSamplerHeight;  //height texture: [position.y, velocity.y, normal.x, normal.z]
+    uniform sampler2D uSamplerHeight;  //height texture: [position.y, normal.x, normal.z, velocity.y]
     varying vec3 vVertexPosition;
     //varying vec3 vVertexNormal;
     varying vec3 vVertexPositionWorld;
@@ -298,8 +341,9 @@
 </script>
 
 <script id="caustic-vs" type="x-shader/x-vertex">
-    uniform sampler2D uSamplerHeight;
-     uniform vec3 aVertexPosition;
+    //uniform sampler2D uSamplerHeight;
+     attribute vec3 aVertexPosition;
+
      varying vec3 oldPos;
      varying vec3 newPos;
      varying vec3 ray;
@@ -308,34 +352,34 @@
      const float IOR_AIR = 1.0;
      const float IOR_WATER = 1.333;
      
-     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
-        vec3 tMin = (cubeMin - origin) / ray;
-        vec3 tMax = (cubeMax - origin) / ray;
-        vec3 t1 = min(tMin, tMax);
-        vec3 t2 = max(tMin, tMax);
-        float tNear = max(max(t1.x, t1.y), t1.z);
-        float tFar = min(min(t2.x, t2.y), t2.z);
-        return vec2(tNear, tFar);
-    }
-     vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {
-        vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
-        origin += ray * tcube.y;
-        float tplane = (-origin.y - 1.0) / refractedLight.y;
-        return origin + refractedLight * tplane;
-     }
+    //  vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
+    //     vec3 tMin = (cubeMin - origin) / ray;
+    //     vec3 tMax = (cubeMax - origin) / ray;
+    //     vec3 t1 = min(tMin, tMax);
+    //     vec3 t2 = max(tMin, tMax);
+    //     float tNear = max(max(t1.x, t1.y), t1.z);
+    //     float tFar = min(min(t2.x, t2.y), t2.z);
+    //     return vec2(tNear, tFar);
+    // }
+     // vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {
+     //    vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+     //    origin += ray * tcube.y;
+     //    float tplane = (-origin.y - 1.0) / refractedLight.y;
+     //    return origin + refractedLight * tplane;
+     // }
   
      void main() {
-       vec4 info = texture2D(uSamplerHeight, aVertexPosition.xy * 0.5 + 0.5);
-       info.ba *= 0.5;  //normal
-       vec3 normal = vec3(info.b, sqrt(1.0 - dot(info.ba, info.ba)), info.a);
+       // vec4 info = texture2D(uSamplerHeight, aVertexPosition.xy * 0.5 + 0.5);
+       // info.gb *= 0.5;  //normal
+       // vec3 normal = vec3(info.g, sqrt(1.0 - dot(info.gb, info.gb)), info.b);
        
-       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
-       ray = refract(-lightDir, normal, IOR_AIR / IOR_WATER);
-       oldPos = project(aVertexPosition.xzy, refractedLight, refractedLight);
-       newPos = project(aVertexPosition.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);
+       // vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+       // ray = refract(-lightDir, normal, IOR_AIR / IOR_WATER);
+       // oldPos = project(aVertexPosition.xzy, refractedLight, refractedLight);
+       // newPos = project(aVertexPosition.xzy + vec3(0.0, info.r, 0.0), ray, refractedLight);
       
-       gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);
-     //gl_Position = vec4(1.0);
+       // gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);
+        gl_Position = vec4(aVertexPosition.xyz, 1.0);
      
      }
    
@@ -343,7 +387,8 @@
 
 <script id="caustic-fs" type="x-shader/x-fragment">
     precision highp float;
-    #extension GL_OES_standard_derivatives : enable
+  //  #extension GL_OES_standard_derivatives : enable
+
      varying vec3 oldPos;
      varying vec3 newPos;
      varying vec3 ray;
@@ -351,27 +396,28 @@
      const float IOR_AIR = 1.0;
      const float IOR_WATER = 1.333;
      float poolHeight = 0.8;
+
      //uniform int OES_standard_derivatives;
-    vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
-        vec3 tMin = (cubeMin - origin) / ray;
-        vec3 tMax = (cubeMax - origin) / ray;
-        vec3 t1 = min(tMin, tMax);
-        vec3 t2 = max(tMin, tMax);
-        float tNear = max(max(t1.x, t1.y), t1.z);
-        float tFar = min(min(t2.x, t2.y), t2.z);
-        return vec2(tNear, tFar);
-    }
+    // vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
+    //     vec3 tMin = (cubeMin - origin) / ray;
+    //     vec3 tMax = (cubeMax - origin) / ray;
+    //     vec3 t1 = min(tMin, tMax);
+    //     vec3 t2 = max(tMin, tMax);
+    //     float tNear = max(max(t1.x, t1.y), t1.z);
+    //     float tFar = min(min(t2.x, t2.y), t2.z);
+    //     return vec2(tNear, tFar);
+    // }
      void main() {
        
        //if(OES_standard_derivatives > 0){
-          float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));
-          float newArea = length(dFdx(newPos)) * length(dFdy(newPos)); 
-          gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);
+          // float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));
+          // float newArea = length(dFdx(newPos)) * length(dFdy(newPos)); 
+          // gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);
        //}else{
           //gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
        //}
      
-       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+     //  vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
       
        //vec3 dir = (sphereCenter - newPos) / sphereRadius;
        //vec3 area = cross(dir, refractedLight);
@@ -382,9 +428,9 @@
        //shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
        //gl_FragColor.g = shadow;
       
-       vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+      // vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
        //gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - 2.0 / 12.0)));
-     gl_FragColor.r = 1.0;
+       gl_FragColor = vec4(0.5, 0.8, 1.0, 1.0);
      }
     
 </script>
@@ -468,6 +514,33 @@
     }
 </script>
 
+<script id="interact-sphere-fs" type="x-shader/x-fragment">
+    precision mediump float;
+    uniform sampler2D uSamplerFloat;
+    uniform vec3 uOldCenter;
+    uniform vec3 uNewCenter;
+    uniform float uRadius;
+    varying vec2 vCoord;
+    
+    float volumeInSphere(vec3 center) {
+      vec3 toCenter = vec3(vCoord.x * 2.0 - 1.0, 0.0, vCoord.y * 2.0 - 1.0) - center;
+      float t = length(toCenter) / uRadius;
+      float dy = exp(-pow(t * 1.5, 6.0));
+      float ymin = min(0.0, center.y - dy);
+      float ymax = min(max(0.0, center.y + dy), ymin + 2.0 * dy);
+      return (ymax - ymin) * 0.1;
+    }
+    void main() {
+
+      vec4 data = texture2D(uSamplerFloat, vCoord);
+      data.r += volumeInSphere(uOldCenter);
+      data.r -= volumeInSphere(uNewCenter);
+      gl_FragColor = data;
+    }
+</script>
+
+
+
 </head> 
 
 <body onload="webGLStart();">
@@ -475,7 +548,7 @@
 <table>
       <tr>
           <td>
-              <canvas id="the-canvas" width="1080" height="720">  WebGL unavailable. </canvas>
+              <canvas id="the-canvas" width="1080" height="720" style="cursor:hand;">  WebGL unavailable. </canvas>
 
           </td>
 
