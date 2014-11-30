@@ -152,11 +152,12 @@
 
         poolProg.pMatrixUniform = gl.getUniformLocation(poolProg, "uPMatrix");
         poolProg.mvMatrixUniform = gl.getUniformLocation(poolProg, "uMVMatrix");
-        poolProg.NmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
+        poolProg.nmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
         poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
-        poolProg.samplerHeightUniform = gl.getUniformLocation(poolProg, "uSamplerHeight");
+        poolProg.samplerWaterUniform = gl.getUniformLocation(poolProg, "uSamplerWater");
         poolProg.samplerCausticUniform = gl.getUniformLocation(poolProg, "uSamplerCaustic");
-
+        poolProg.sphereRadiusUniform = gl.getUniformLocation(poolProg, "uSphereRadius");
+        poolProg.sphereCenterUniform = gl.getUniformLocation(poolProg, "uSphereCenter");
 
 
 
@@ -177,7 +178,7 @@
 
         objProg.pMatrixUniform = gl.getUniformLocation(objProg, "uPMatrix");
         objProg.mvMatrixUniform = gl.getUniformLocation(objProg, "uMVMatrix");
-        objProg.NmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
+        objProg.nmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
         objProg.CenterUniform = gl.getUniformLocation(objProg, "uCenter");
         //objProg.RadiusUniform = gl.getUniformLocation(objProg, "uRadius");
        // objProg.diffuseColorUniform = gl.getUniformLocation(objProg, "uDiffuseColor");
@@ -221,7 +222,7 @@
             waterProg[i].mvMatrixUniform = gl.getUniformLocation(waterProg[i], "uMVMatrix");
             waterProg[i].samplerSkyUniform = gl.getUniformLocation(waterProg[i], "uSamplerSky");
             waterProg[i].samplerTileUniform = gl.getUniformLocation(waterProg[i], "uSamplerTile");
-            waterProg[i].samplerHeightUniform = gl.getUniformLocation(waterProg[i], "uSamplerHeight");
+            waterProg[i].samplerWaterUniform = gl.getUniformLocation(waterProg[i], "uSamplerWater");
             waterProg[i].samplerCausticUniform = gl.getUniformLocation(waterProg[i], "uSamplerCaustic");
             waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
             waterProg[i].nmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
@@ -243,7 +244,7 @@
         gl.useProgram(heightProg);
 
         heightProg.vertexPositionAttribute = gl.getAttribLocation(heightProg, "aVertexPosition");
-        heightProg.samplerFloatUniform = gl.getUniformLocation(heightProg, "uSamplerFloat");
+        heightProg.samplerWaterUniform = gl.getUniformLocation(heightProg, "uSamplerWater");
         heightProg.centerUniform = gl.getUniformLocation(heightProg,"uCenter");
 
         //-----------------------caustic------------------------------------------------
@@ -257,9 +258,11 @@
         }
         gl.useProgram(causticProg);
 
-      //  causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
+        causticProg.samplerWaterUniform = gl.getUniformLocation(causticProg, "uSamplerWater");
         causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
         //causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
+        causticProg.sphereRadiusUniform = gl.getUniformLocation(causticProg, "uSphereRadius");
+        causticProg.sphereCenterUniform = gl.getUniformLocation(causticProg, "uSphereCenter");
 
          //-----------------------normal------------------------------------------------
         normalProg = gl.createProgram();
@@ -273,7 +276,7 @@
         gl.useProgram(normalProg);
 
         normalProg.vertexPositionAttribute = gl.getAttribLocation(normalProg, "aVertexPosition");
-        normalProg.samplerFloatUniform = gl.getUniformLocation(normalProg, "uSamplerFloat");
+        normalProg.samplerWaterUniform = gl.getUniformLocation(normalProg, "uSamplerWater");
         normalProg.deltaUniform = gl.getUniformLocation(normalProg,"uDelta");
 
         //-----------------------simulation-----------------------------------------------
@@ -289,7 +292,7 @@
         gl.useProgram(simulateProg);
 
         simulateProg.vertexPositionAttribute = gl.getAttribLocation(simulateProg, "aVertexPosition");
-        simulateProg.samplerFloatUniform = gl.getUniformLocation(simulateProg, "uSamplerFloat");
+        simulateProg.samplerWaterUniform = gl.getUniformLocation(simulateProg, "uSamplerWater");
         simulateProg.deltaUniform = gl.getUniformLocation(simulateProg,"uDelta");
 
         //---------------------sphere interaction---------------------------------------------------
@@ -305,7 +308,7 @@
         gl.useProgram(objectProg);
 
         objectProg.vertexPositionAttribute = gl.getAttribLocation(objectProg, "aVertexPosition");
-        objectProg.samplerFloatUniform = gl.getUniformLocation(objectProg, "uSamplerFloat");
+        objectProg.samplerWaterUniform = gl.getUniformLocation(objectProg, "uSamplerWater");
         objectProg.newCenterUniform = gl.getUniformLocation(objectProg, "uNewCenter");
         objectProg.oldCenterUniform = gl.getUniformLocation(objectProg,"uOldCenter");
         objectProg.radiusUniform = gl.getUniformLocation(objectProg,"uRadius");
@@ -582,7 +585,7 @@ function initBuffers(model, primitive){
                 vec3.add(sphere.center, offsetHit);
                 //make sure the sphere is in the boundary of pool
                 sphere.center[0] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[0]));
-                sphere.center[1] = Math.max(sphere.radius - 1.0, Math.min(10, sphere.center[1]));
+                sphere.center[1] = Math.max(sphere.radius - 0.8, Math.min(10, sphere.center[1]));
                 sphere.center[2] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[2]));
                 //console.log("drag center: " + vec3.str(sphere.center));
             }
@@ -654,14 +657,16 @@ function initBuffers(model, primitive){
         
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(poolProg.samplerHeightUniform,2);
+        gl.uniform1i(poolProg.samplerWaterUniform,2);
         
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
         gl.uniform1i(poolProg.samplerCausticUniform, 1);
 
         setMatrixUniforms(poolProg);
-         gl.uniformMatrix4fv(poolProg.NmlMatrixUniform, false, nmlMatrix);
+        gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
+        gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
+        gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
         gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -765,7 +770,7 @@ function drawWater(){
     
             gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-            gl.uniform1i(waterProg[i].samplerHeightUniform,2);
+            gl.uniform1i(waterProg[i].samplerWaterUniform,2);
             
             gl.activeTexture(gl.TEXTURE3);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
@@ -793,7 +798,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         
        // console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
         
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -809,7 +814,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(heightProg.samplerFloatUniform,0);
+        gl.uniform1i(heightProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -835,43 +840,25 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
 function drawCaustic(){
        
-        framebuffer = framebuffer || gl.createFramebuffer();
-    renderbuffer = renderbuffer || gl.createRenderbuffer();
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
-
-    framebuffer.width = textureSize;
-    framebuffer.height = textureSize;
-
-    if (textureSize!= renderbuffer.width ||textureSize!= renderbuffer.height) {
-      renderbuffer.width =textureSize;
-      renderbuffer.height = textureSize;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
-    }
-    
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, water.TextureC, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Rendering to this texture is not supported");
-    }
+        initFrameBuffer(water.TextureC);
 
         gl.viewport(0, 0, textureSize, textureSize);
         gl.useProgram(causticProg);
 
-       // console.log("quad " +water.IBO.numItems);
         gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
         gl.vertexAttribPointer(causticProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(causticProg.vertexPositionAttribute);
 
-        // gl.activeTexture(gl.TEXTURE0);
-        // gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        // gl.uniform1i(causticProg.samplerFloatUniform,0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(causticProg.samplerWaterUniform,0);
+
+        //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
+        gl.uniform1f(causticProg.sphereRadiusUniform, sphere.radius);
+        gl.uniform3fv(causticProg.sphereCenterUniform, sphere.center);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
-        
-        
-        //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         
         gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -884,7 +871,7 @@ function drawCaustic(){
 }
 
 function drawNormal(){
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -899,7 +886,7 @@ function drawNormal(){
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(normalProg.samplerFloatUniform,0);
+        gl.uniform1i(normalProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -923,7 +910,7 @@ function drawNormal(){
 
 function drawSimulation(){
 
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -938,7 +925,7 @@ function drawSimulation(){
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(simulateProg.samplerFloatUniform,0);
+        gl.uniform1i(simulateProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -963,7 +950,7 @@ function drawSimulation(){
 
 function drawInteraction(){
 
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -982,7 +969,7 @@ function drawInteraction(){
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(objectProg.samplerFloatUniform,0);
+        gl.uniform1i(objectProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1005,7 +992,7 @@ function drawInteraction(){
 
 }
 
-function initFrameBuffer(){   // rendering to a texture, TextureB
+function initFrameBuffer(texture){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
 
@@ -1021,12 +1008,13 @@ function initFrameBuffer(){   // rendering to a texture, TextureB
       gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
     }
     
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, water.TextureB, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
       alert("Rendering to this texture is not supported");
     }
 
 }
+
 
 function initTracer(){
  // tracer.eye = vec3.create(eyePos);
