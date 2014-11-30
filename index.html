@@ -66,40 +66,40 @@
         return vec2(tNear, tFar);
     }
 
-     vec3 getWallColor(vec3 point) {
-    float scale = 0.5;
-    vec3 wallColor = vec3(1.0, 0.0, 0.0);
-    vec3 normal;
-    if (abs(point.x) > 0.999) {  //left,right wall
-      wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
-      normal = vec3(-point.x, 0.0, 0.0);
-    }
-    else if (abs(point.z) > 0.999) {   //front,back wall
-      wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
-      normal = vec3(0.0, 0.0, -point.z);
-    } 
-    else {   //bottm wall
-      wallColor = texture2D(uSamplerTile, point.xz * 0.5 + 0.5).rgb;
-      normal = vec3(0.0, 1.0, 0.0);
-    }
-    
-    scale /= length(point); 
-    scale *= 1.0 - 0.9 / pow(length(point - uSphereCenter) / uSphereRadius, 4.0); 
+    vec3 getWallColor(vec3 point) {
+        float scale = 0.5;
+        vec3 wallColor = vec3(1.0, 0.0, 0.0);
+        vec3 normal;
+        if (abs(point.x) > 0.999) {  //left,right wall
+          wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
+          normal = vec3(-point.x, 0.0, 0.0);
+        }
+        else if (abs(point.z) > 0.999) {   //front,back wall
+          wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
+          normal = vec3(0.0, 0.0, -point.z);
+        } 
+        else {   //bottm wall
+          wallColor = texture2D(uSamplerTile, point.xz * 0.5 + 0.5).rgb;
+          normal = vec3(0.0, 1.0, 0.0);
+        }
+        
+        scale /= length(point); 
+        scale *= 1.0 - 0.9 / pow(length(point - uSphereCenter) / uSphereRadius, 4.0); 
 
-    vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
-    float diffuse = max(0.0, dot(refractedLight, normal));
-    vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
+        vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+        float diffuse = max(0.0, dot(refractedLight, normal));
+        vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
 
-    if (point.y < data.r) {
-       vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
-       scale += diffuse * caustic.r * 2.0 * caustic.g;
-    } else {
-      vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
-      diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
-      scale += diffuse * 0.5;
-    }
-    
-    return wallColor * scale;
+        if (point.y < data.r) {
+           vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+           scale += diffuse * caustic.r * 2.0 * caustic.g;
+        } else {
+          vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+          diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
+          scale += diffuse * 0.5;
+        }
+        
+        return wallColor * scale;
   }
 
     void main(void) {
@@ -284,39 +284,39 @@
 
 
   vec3 getWallColor(vec3 point) {
-    float scale = 0.5;
-    vec3 wallColor = vec3(1.0, 0.0, 0.0);
-    vec3 normal;
-    if (abs(point.x) > 0.999) {  //left,right wall
-      wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
-      normal = vec3(-point.x, 0.0, 0.0);
-    }
-    else if (abs(point.z) > 0.999) {   //front,back wall
-      wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
-      normal = vec3(0.0, 0.0, -point.z);
-    } 
-    else {   //bottm wall
-      wallColor = texture2D(uSamplerTile, point.xz * 0.5 + 0.5).rgb;
-      normal = vec3(0.0, 1.0, 0.0);
-    }
-    
-    scale /= length(point); 
-    scale *= 1.0 - 0.9 / pow(length(point - uSphereCenter) / uSphereRadius, 4.0); 
+        float scale = 0.5;
+        vec3 wallColor = vec3(1.0, 0.0, 0.0);
+        vec3 normal;
+        if (abs(point.x) > 0.999) {  //left,right wall
+          wallColor = texture2D(uSamplerTile, point.zy * 0.5 + vec2(1.0, 0.5)).rgb;
+          normal = vec3(-point.x, 0.0, 0.0);
+        }
+        else if (abs(point.z) > 0.999) {   //front,back wall
+          wallColor = texture2D(uSamplerTile, point.xy * 0.5 + vec2(1.0, 0.5)).rgb;
+          normal = vec3(0.0, 0.0, -point.z);
+        } 
+        else {   //bottm wall
+          wallColor = texture2D(uSamplerTile, point.xz * 0.5 + 0.5).rgb;
+          normal = vec3(0.0, 1.0, 0.0);
+        }
+        
+        scale /= length(point); 
+        scale *= 1.0 - 0.9 / pow(length(point - uSphereCenter) / uSphereRadius, 4.0); 
 
-    vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
-    float diffuse = max(0.0, dot(refractedLight, normal));
-    vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
+        vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+        float diffuse = max(0.0, dot(refractedLight, normal));
+        vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
 
-    if (point.y < data.r) {
-       vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
-       scale += diffuse * caustic.r * 2.0 * caustic.g;
-    } else {
-      vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
-      diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
-      scale += diffuse * 0.5;
-    }
-    
-    return wallColor * scale;
+        if (point.y < data.r) {
+           vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+           scale += diffuse * caustic.r * 2.0 * caustic.g;
+        } else {
+          vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
+          diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 2.0 / 12.0)));
+          scale += diffuse * 0.5;
+        }
+        
+        return wallColor * scale;
   }
     vec3 getRayColor(vec3 origin, vec3 ray, vec3 waterColor) {
         vec3 color;
@@ -365,12 +365,7 @@
           vec3 refleColor = getRayColor(vVertexPosition, reflectDir, abovewaterColor);
           gl_FragColor = vec4(mix(refleColor, refraColor, (1.0 - fresnel) * length(refractDir)), 1.0);   
         }
-//gl_FragColor = vec4(vVertexPosition,1.0);
-          //gl_FragColor = vec4(refraColor, 1.0);
-       //vec3 heightcolor = texture2D(uSamplerWater, vVertexPosition.xy).rgb;
-    
-        //gl_FragColor = texture2D(uSamplerWater, vVertexPosition.xy);
-       //gl_FragColor = vec4(heightcolor,1.0);
+
     }
 </script>
 
@@ -459,8 +454,9 @@
      //     gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
      //  }
      
-      vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
       
+      //sphere shadow
        vec3 dir = (uSphereCenter - newPos) / uSphereRadius;
        vec3 area = cross(dir, refractedLight);
        float shadow = dot(area, area);
@@ -470,9 +466,12 @@
        shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
        gl_FragColor.g = shadow;
       
-        vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
-       gl_FragColor.r *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - 2.0 / 12.0)));
-       //gl_FragColor = vec4(0.5, 0.8, 1.0, 1.0);
+      //caustics
+       vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
+       float expTerm = -200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - 2.0 / 12.0);
+       //expTerm = -2.0;
+       gl_FragColor.r *= 1.0 / (1.0 + exp(expTerm));
+    
      }
     
 </script>

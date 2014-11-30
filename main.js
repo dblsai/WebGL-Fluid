@@ -26,6 +26,7 @@
     var renderbuffer;
     var viewportOriginal
     var textureSize = 256;
+    var textureSize2 = 1024;
 
     // matrices
     var mvMatrix = mat4.create();
@@ -35,7 +36,7 @@
     var eyePos;
     var radius = 4.0;
     var azimuth = 0.0;//0.5*Math.PI;
-    var elevation = 0.0;//0.5;
+    var elevation = 0.5;
     var fov = 45.0;
     var eye = sphericalToCartesian(radius, azimuth, elevation);
     var center = [0.0, 0.0, 0.0];
@@ -798,7 +799,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         
        // console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
         
-        initFrameBuffer(water.TextureB);
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -840,9 +841,9 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
 function drawCaustic(){
        
-        initFrameBuffer(water.TextureC);
+        initFrameBuffer(water.TextureC, textureSize2);
 
-        gl.viewport(0, 0, textureSize, textureSize);
+        gl.viewport(0, 0, textureSize2, textureSize2);
         gl.useProgram(causticProg);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
@@ -871,7 +872,7 @@ function drawCaustic(){
 }
 
 function drawNormal(){
-        initFrameBuffer(water.TextureB);
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -910,7 +911,7 @@ function drawNormal(){
 
 function drawSimulation(){
 
-        initFrameBuffer(water.TextureB);
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -950,7 +951,7 @@ function drawSimulation(){
 
 function drawInteraction(){
 
-        initFrameBuffer(water.TextureB);
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -992,20 +993,20 @@ function drawInteraction(){
 
 }
 
-function initFrameBuffer(texture){   // rendering to a texture
+function initFrameBuffer(texture, size){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
 
-    framebuffer.width = textureSize;
-    framebuffer.height = textureSize;
+    framebuffer.width = size;
+    framebuffer.height = size;
 
-    if (textureSize!= renderbuffer.width ||textureSize!= renderbuffer.height) {
-      renderbuffer.width =textureSize;
-      renderbuffer.height = textureSize;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
+    if (size!= renderbuffer.width ||size!= renderbuffer.height) {
+      renderbuffer.width = size;
+      renderbuffer.height = size;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size, size);
     }
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
@@ -1182,7 +1183,7 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
       initFloatTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
       initFloatTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
-      initFloatTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is bigger
 
       var successA = checkCanDrawToTexture(water.TextureA);
       var successB = checkCanDrawToTexture(water.TextureB);
