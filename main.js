@@ -26,6 +26,7 @@
     var renderbuffer;
     var viewportOriginal
     var textureSize = 256;
+    var textureSize2 = 1024;
 
     // matrices
     var mvMatrix = mat4.create();
@@ -34,8 +35,7 @@
     var nmlMatrix = mat4.create();
     var eyePos;
     var radius = 4.0;
-    //var azimuth = 0.5*Math.PI;
-    var azimuth = 0.0;
+    var azimuth = 0.0;//0.5*Math.PI;
     var elevation = 0.5;
     var fov = 45.0;
     var eye = sphericalToCartesian(radius, azimuth, elevation);
@@ -65,8 +65,9 @@
     var lastMouseY = null;
 
     var preHit = vec3.create(0.0);
-    var nxtHit = vec3.create(0.0);
+   //var nxtHit = vec3.create(0.0);
     var viewportNormal = vec3.create(0.0);
+    var mode = 0;   // 0- mouse click interaction, 1-sphere interaction
 
 
     var pool = {};    //a cube without top plane
@@ -152,11 +153,12 @@
 
         poolProg.pMatrixUniform = gl.getUniformLocation(poolProg, "uPMatrix");
         poolProg.mvMatrixUniform = gl.getUniformLocation(poolProg, "uMVMatrix");
-        poolProg.NmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
+        poolProg.nmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
         poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
-        poolProg.samplerHeightUniform = gl.getUniformLocation(poolProg, "uSamplerHeight");
+        poolProg.samplerWaterUniform = gl.getUniformLocation(poolProg, "uSamplerWater");
         poolProg.samplerCausticUniform = gl.getUniformLocation(poolProg, "uSamplerCaustic");
-
+        poolProg.sphereRadiusUniform = gl.getUniformLocation(poolProg, "uSphereRadius");
+        poolProg.sphereCenterUniform = gl.getUniformLocation(poolProg, "uSphereCenter");
 
 
 
@@ -177,7 +179,7 @@
 
         objProg.pMatrixUniform = gl.getUniformLocation(objProg, "uPMatrix");
         objProg.mvMatrixUniform = gl.getUniformLocation(objProg, "uMVMatrix");
-        objProg.NmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
+        objProg.nmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
         objProg.CenterUniform = gl.getUniformLocation(objProg, "uCenter");
         //objProg.RadiusUniform = gl.getUniformLocation(objProg, "uRadius");
        // objProg.diffuseColorUniform = gl.getUniformLocation(objProg, "uDiffuseColor");
@@ -221,11 +223,13 @@
             waterProg[i].mvMatrixUniform = gl.getUniformLocation(waterProg[i], "uMVMatrix");
             waterProg[i].samplerSkyUniform = gl.getUniformLocation(waterProg[i], "uSamplerSky");
             waterProg[i].samplerTileUniform = gl.getUniformLocation(waterProg[i], "uSamplerTile");
-            waterProg[i].samplerHeightUniform = gl.getUniformLocation(waterProg[i], "uSamplerHeight");
+            waterProg[i].samplerWaterUniform = gl.getUniformLocation(waterProg[i], "uSamplerWater");
             waterProg[i].samplerCausticUniform = gl.getUniformLocation(waterProg[i], "uSamplerCaustic");
             waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
-            waterProg[i].NmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
-            waterProg[i].ProgNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
+            waterProg[i].nmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
+            waterProg[i].progNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
+            waterProg[i].sphereCenterUniform = gl.getUniformLocation(waterProg[i], "uSphereCenter");
+            waterProg[i].sphereRadiusUniform = gl.getUniformLocation(waterProg[i], "uSphereRadius");
 
         }
 
@@ -241,7 +245,7 @@
         gl.useProgram(heightProg);
 
         heightProg.vertexPositionAttribute = gl.getAttribLocation(heightProg, "aVertexPosition");
-        heightProg.samplerFloatUniform = gl.getUniformLocation(heightProg, "uSamplerFloat");
+        heightProg.samplerWaterUniform = gl.getUniformLocation(heightProg, "uSamplerWater");
         heightProg.centerUniform = gl.getUniformLocation(heightProg,"uCenter");
 
         //-----------------------caustic------------------------------------------------
@@ -255,9 +259,11 @@
         }
         gl.useProgram(causticProg);
 
-      //  causticProg.samplerHeightUniform = gl.getUniformLocation(causticProg, "uSamplerHeight");
+        causticProg.samplerWaterUniform = gl.getUniformLocation(causticProg, "uSamplerWater");
         causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
         //causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
+        causticProg.sphereRadiusUniform = gl.getUniformLocation(causticProg, "uSphereRadius");
+        causticProg.sphereCenterUniform = gl.getUniformLocation(causticProg, "uSphereCenter");
 
          //-----------------------normal------------------------------------------------
         normalProg = gl.createProgram();
@@ -271,7 +277,7 @@
         gl.useProgram(normalProg);
 
         normalProg.vertexPositionAttribute = gl.getAttribLocation(normalProg, "aVertexPosition");
-        normalProg.samplerFloatUniform = gl.getUniformLocation(normalProg, "uSamplerFloat");
+        normalProg.samplerWaterUniform = gl.getUniformLocation(normalProg, "uSamplerWater");
         normalProg.deltaUniform = gl.getUniformLocation(normalProg,"uDelta");
 
         //-----------------------simulation-----------------------------------------------
@@ -287,7 +293,7 @@
         gl.useProgram(simulateProg);
 
         simulateProg.vertexPositionAttribute = gl.getAttribLocation(simulateProg, "aVertexPosition");
-        simulateProg.samplerFloatUniform = gl.getUniformLocation(simulateProg, "uSamplerFloat");
+        simulateProg.samplerWaterUniform = gl.getUniformLocation(simulateProg, "uSamplerWater");
         simulateProg.deltaUniform = gl.getUniformLocation(simulateProg,"uDelta");
 
         //---------------------sphere interaction---------------------------------------------------
@@ -303,7 +309,7 @@
         gl.useProgram(objectProg);
 
         objectProg.vertexPositionAttribute = gl.getAttribLocation(objectProg, "aVertexPosition");
-        objectProg.samplerFloatUniform = gl.getUniformLocation(objectProg, "uSamplerFloat");
+        objectProg.samplerWaterUniform = gl.getUniformLocation(objectProg, "uSamplerWater");
         objectProg.newCenterUniform = gl.getUniformLocation(objectProg, "uNewCenter");
         objectProg.oldCenterUniform = gl.getUniformLocation(objectProg,"uOldCenter");
         objectProg.radiusUniform = gl.getUniformLocation(objectProg,"uRadius");
@@ -518,23 +524,23 @@ function initBuffers(model, primitive){
         var ray = vec3.create();
         ray = rayEyeToPixel(x,y);
 
-        var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
+        var hit = vec3.create();
+        hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
         if(hit!= null){   //sphere interaction
-            preHit = hit.point;
-            console.log("hit sphere at " + vec3.str(preHit));
+            preHit = hit;
             viewportNormal = rayEyeToPixel(gl.viewportWidth / 2.0, gl.viewportHeight / 2.0);
+            vec3.negate(viewportNormal);
+            mode = 1;
+            // console.log("--------------hit sphere at " + vec3.str(preHit));
+            // console.log("--------------viewportNormal="+vec3.str(viewportNormal));
         }
         else{   //mouse directioin interaction
             var scale = -tracer.eye[1] / ray[1];
             //move in the direction of ray, until gets the 'y=waterHeight' plane
             var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
-       
-          //  var pointOnPlane = tracer.eye.add(ray.multiply(-tracer.eye.y / ray.y));
-           //  console.log("tracer.eye= " + vec3.str(tracer.eye)+"\nray= " + vec3.str(ray)+"\npoint= " +vec3.str(point));
             if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-              //console.log("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
-             // alert("water plane hit at "+ point[0].toFixed(2)+ "," + point[2].toFixed(2));
               drawHeight(point[0],point[2]);
+              mode = 0;
             }
         }
     }
@@ -543,48 +549,49 @@ function initBuffers(model, primitive){
 
         var ray = vec3.create();
         ray = rayEyeToPixel(x,y);
-
-        var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
-        if(hit!= null){   //sphere interaction, move sphere around
-            var theEye = vec3.create(tracer.eye);
-            var preRay = vec3.create(theEye);
-            var nxtRay = vec3.create(ray);
-
-            vec3.subtract(preRay, preHit);
-            var t1 = vec3.dot(viewportNormal, preRay);  
-            var t2 = vec3.dot(viewportNormal, nxtRay);
-            var t = -t1/t2;
-            vec3.scale(nxtRay, t)
-        
-            vec3.add(theEye, nxtRay, nxtHit);
-            var offsetHit = vec3.create(nxtHit);
-            vec3.subtract(offsetHit, preHit);
-          
-
-        
-            if(vec3.length(offsetHit)>0.0000001){
-                console.log("pre ray: " + vec3.str(preRay));
-                console.log("nxt ray: " + vec3.str(nxtRay));
-
-                console.log("pre hit: " + vec3.str(preHit));
-                console.log("nxt hit: " + vec3.str(nxtHit));
-                 console.log("hit offset: " + vec3.str(offsetHit));
-                //sphere.center[1] += 0.01; 
-                sphere.center = vec3.add(sphere.center, offsetHit);
-                // sphere.center[0] = Math.max(sphere.radius - 1, Math.min(1 - sphere.radius, sphere.center[0]));
-                // sphere.center[1] = Math.max(sphere.radius - 1, Math.min(10, sphere.center[1]));
-                // sphere.center[2] = Math.max(sphere.radius- 1, Math.min(1 - sphere.radius, sphere.center[0]));
-                preHit = nxtHit;
-                console.log("moving to new center: " + vec3.str(sphere.center));
-            }
-        }
-        else{   //direction mouse interaction
+        if(mode == 0){   //direct mouse interaction
             var scale = -tracer.eye[1] / ray[1];
             var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
        
             if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
               drawHeight(point[0],point[2]);
             }
+        }
+        //var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
+        //if(hit!= null){   //sphere interaction, move sphere around
+        if(mode == 1){  //sphere interaction, move sphere around
+            var theEye = vec3.create(tracer.eye);
+            var preRay = vec3.create(preHit);
+            var nxtRay = vec3.create(ray);
+
+            vec3.subtract(preRay, theEye);   //preRay = preHit - eye
+            var t1 = vec3.dot(viewportNormal, preRay);  
+            var t2 = vec3.dot(viewportNormal, nxtRay);
+            var t = t1/t2;
+            vec3.scale(nxtRay, t);
+            // console.log("-----------------------");
+            // console.log("pre ray: " + vec3.str(preRay));
+            // console.log("nxt ray: " + vec3.str(nxtRay));
+  
+            var nxtHit = vec3.create();
+            nxtHit = vec3.add(theEye, nxtRay);
+            var offsetHit = vec3.create(nxtHit);
+            vec3.subtract(offsetHit, preHit);   //offsetHit = nxtHit - preHit
+
+            // console.log("pre hit: " + vec3.str(preHit));
+            // console.log("nxt hit: " + vec3.str(nxtHit));
+            // console.log("hit offset: " + vec3.str(offsetHit));
+
+            if(vec3.length(offsetHit)>0.0){   //change location
+                vec3.add(sphere.center, offsetHit);
+                //make sure the sphere is in the boundary of pool
+                sphere.center[0] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[0]));
+                sphere.center[1] = Math.max(sphere.radius - 0.8, Math.min(10, sphere.center[1]));
+                sphere.center[2] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[2]));
+                //console.log("drag center: " + vec3.str(sphere.center));
+            }
+
+            preHit = nxtHit;
         }
 
     }
@@ -651,14 +658,16 @@ function initBuffers(model, primitive){
         
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(poolProg.samplerHeightUniform,2);
+        gl.uniform1i(poolProg.samplerWaterUniform,2);
         
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
         gl.uniform1i(poolProg.samplerCausticUniform, 1);
 
         setMatrixUniforms(poolProg);
-         gl.uniformMatrix4fv(poolProg.NmlMatrixUniform, false, nmlMatrix);
+        gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
+        gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
+        gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
         gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -745,8 +754,11 @@ function drawWater(){
             gl.enableVertexAttribArray(waterProg[i].vertexNormalAttribute);
 
             setMatrixUniforms(waterProg[i]);
-            gl.uniformMatrix4fv(waterProg[i].NmlMatrixUniform, false, nmlMatrix);
-            gl.uniform1i(waterProg[i].ProgNumUniform, i);
+            gl.uniformMatrix4fv(waterProg[i].nmlMatrixUniform, false, nmlMatrix);
+            gl.uniform1i(waterProg[i].progNumUniform, i);
+
+            gl.uniform3fv(waterProg[i].sphereCenterUniform, sphere.center);
+            gl.uniform1f(waterProg[i].sphereRadiusUniform, sphere.radius);
 
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);
@@ -759,7 +771,7 @@ function drawWater(){
     
             gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-            gl.uniform1i(waterProg[i].samplerHeightUniform,2);
+            gl.uniform1i(waterProg[i].samplerWaterUniform,2);
             
             gl.activeTexture(gl.TEXTURE3);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
@@ -785,9 +797,9 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         x = x || 0;
         y = y || 0;
         
-        console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
+       // console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
         
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -803,7 +815,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(heightProg.samplerFloatUniform,0);
+        gl.uniform1i(heightProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -829,43 +841,25 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
 function drawCaustic(){
        
-        framebuffer = framebuffer || gl.createFramebuffer();
-    renderbuffer = renderbuffer || gl.createRenderbuffer();
+        initFrameBuffer(water.TextureC, textureSize2);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
-
-    framebuffer.width = textureSize;
-    framebuffer.height = textureSize;
-
-    if (textureSize!= renderbuffer.width ||textureSize!= renderbuffer.height) {
-      renderbuffer.width =textureSize;
-      renderbuffer.height = textureSize;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
-    }
-    
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, water.TextureC, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Rendering to this texture is not supported");
-    }
-
-        gl.viewport(0, 0, textureSize, textureSize);
+        gl.viewport(0, 0, textureSize2, textureSize2);
         gl.useProgram(causticProg);
 
-       // console.log("quad " +water.IBO.numItems);
         gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
         gl.vertexAttribPointer(causticProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(causticProg.vertexPositionAttribute);
 
-        // gl.activeTexture(gl.TEXTURE0);
-        // gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        // gl.uniform1i(causticProg.samplerFloatUniform,0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(causticProg.samplerWaterUniform,0);
+
+        //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
+        gl.uniform1f(causticProg.sphereRadiusUniform, sphere.radius);
+        gl.uniform3fv(causticProg.sphereCenterUniform, sphere.center);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
-        
-        
-        //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         
         gl.disableVertexAttribArray(causticProg.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -878,7 +872,7 @@ function drawCaustic(){
 }
 
 function drawNormal(){
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -893,7 +887,7 @@ function drawNormal(){
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(normalProg.samplerFloatUniform,0);
+        gl.uniform1i(normalProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -917,7 +911,7 @@ function drawNormal(){
 
 function drawSimulation(){
 
-        initFrameBuffer();
+        initFrameBuffer(water.TextureB, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -932,7 +926,7 @@ function drawSimulation(){
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(simulateProg.samplerFloatUniform,0);
+        gl.uniform1i(simulateProg.samplerWaterUniform,0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -957,30 +951,71 @@ function drawSimulation(){
 
 function drawInteraction(){
 
+        initFrameBuffer(water.TextureB, textureSize);
+        //resize viewport
+        gl.viewport(0, 0, textureSize, textureSize);
+
+        //-------------------start rendering to texture--------------------------------------
+        gl.useProgram(objectProg);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(objectProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(objectProg.vertexPositionAttribute);
+
+       // console.log("old center: "+ vec3.str(sphere.oldcenter));
+       // console.log("new center: "+ vec3.str(sphere.center));
+        gl.uniform3fv(objectProg.newCenterUniform, sphere.center);
+        gl.uniform3fv(objectProg.oldCenterUniform, sphere.oldcenter);
+        gl.uniform1f(objectProg.radiusUniform, sphere.radius);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(objectProg.samplerWaterUniform,0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+        //-------------- after rendering---------------------------------------------------
+        gl.disableVertexAttribArray(objectProg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // reset viewport
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+        //swap TextureA  & TextureB 
+        var tmp = water.TextureA;
+        water.TextureA = water.TextureB;
+        water.TextureB = tmp;
+
+
 }
 
-function initFrameBuffer(){   // rendering to a texture, TextureB
+function initFrameBuffer(texture, size){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
 
-    framebuffer.width = textureSize;
-    framebuffer.height = textureSize;
+    framebuffer.width = size;
+    framebuffer.height = size;
 
-    if (textureSize!= renderbuffer.width ||textureSize!= renderbuffer.height) {
-      renderbuffer.width =textureSize;
-      renderbuffer.height = textureSize;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, textureSize, textureSize);
+    if (size!= renderbuffer.width ||size!= renderbuffer.height) {
+      renderbuffer.width = size;
+      renderbuffer.height = size;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size, size);
     }
     
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, water.TextureB, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
       alert("Rendering to this texture is not supported");
     }
 
 }
+
 
 function initTracer(){
  // tracer.eye = vec3.create(eyePos);
@@ -1033,24 +1068,28 @@ function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ra
 
 function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersection
   var offset = vec3.create();
-  var newRay = vec3.create(ray);
-  var newCenter = vec3.create(center);
-  var newOrigin = vec3.create(origin);
-  vec3.subtract(newOrigin, newCenter, offset);
-  var a = vec3.dot(newRay, newRay);
-  var b = 2.0 * vec3.dot(newRay, offset);
-  var c = vec3.dot(offset, offset)- radius * radius;
-  var discriminant = b * b - 4 * a * c;
-//console.log("origin: " + vec3.str(origin) + "\nray: "+vec3.str(ray) + "\ncenter" + vec3.str(center)+"\nradius"+vec3.str(radius));
+  var theRay = vec3.create(ray);
+  var theCenter = vec3.create(center);
+  var theOrigin = vec3.create(origin);
+  vec3.subtract(theOrigin, theCenter, offset);
+//console.log("origin: " + vec3.str(theOrigin) + "\nray: "+vec3.str(theRay) + "\ncenter" + vec3.str(theCenter)+"\noffset"+vec3.str(offset));
+  var a = vec3.dot(theRay, theRay);
+  var b = 2.0 * vec3.dot(theRay, offset);
+  var c = vec3.dot(offset, offset) - radius * radius;
+  var discriminant = b * b - 4.0* a * c;
+
 //console.log("a: " + a + "\nb: "+b + "\nc" + c+"\ndiscriminant"+discriminant);
-  if (discriminant > 0) {
-    var hit = {};
-    hit.t = (-b - Math.sqrt(discriminant)) / (2 * a);
-    hit.point = vec3.create();
-    hit.point =  vec3.add(newOrigin, vec3.scale(newRay, hit.t));
-    hit.normal =  vec3.create();
-    hit.normal = vec3.subtract(hit.point, newCenter);
-    hit.normal = vec3.scale(hit.normal, 1.0/radius);
+  if (discriminant > 0.0) {
+    t = (-b - Math.sqrt(discriminant)) / (2.0 * a);
+    hit = vec3.create();
+    vec3.scale(theRay, t, theRay);
+    //console.log("the scaled ray: "+ vec3.str(theRay));
+    vec3.add(theOrigin, theRay, hit);
+   // console.log("hit t: " + t+"\nhit point: " + vec3.str(hit));
+    normal =  vec3.create(hit);
+    normal = vec3.subtract(normal, theCenter);
+    normal = vec3.scale(normal, 1.0/radius);
+    //console.log("hit point: " + vec3.str(hit) + "\nhit normal: "+vec3.str(normal));
     return hit;
   }
   return null;
@@ -1071,7 +1110,10 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
         drawSimulation();
         drawSimulation();
         drawCaustic();
-       // drawInteraction();
+        drawInteraction();
+       // console.log("old center: "+ vec3.str(sphere.oldcenter));
+       // console.log("new center: "+ vec3.str(sphere.center));
+        sphere.oldcenter = vec3.create(sphere.center);
     }
 
 
@@ -1122,10 +1164,11 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       //  initBuffers();
       initBuffers(sky, cubeSky);
       initBuffers(pool, cubePool);
-      //initBuffers(sphere, sphereObj);
+      initBuffers(sphere, sphereObj);
       initBuffers(water, planeWater);
       initBuffers(quad, screenQuad);
       sphere.center = vec3.create(0.0,0.0,0.0);
+      sphere.oldcenter = vec3.create(0.0,0.0,0.0);
       sphere.radius = sphereObj.radius;
      // console.log("sphere radius: "+sphere.radius);
 
@@ -1140,7 +1183,7 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
       initFloatTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
       initFloatTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
-      initFloatTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initFloatTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is bigger
 
       var successA = checkCanDrawToTexture(water.TextureA);
       var successB = checkCanDrawToTexture(water.TextureB);
