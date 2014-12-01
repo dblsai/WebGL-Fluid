@@ -3,7 +3,8 @@ WebGL-Interactive-Fluid
 
 This project requires advanced graphics card together with a WebGL capable browser. 
 
-Please also ensure that you have below WebGL extensions, `OES_texture_float`, `OES_texture_float_linear`, `WEBGL_depth_texture`, `OES_standard_derivatives`.
+Please also ensure that you have below WebGL extensions, `OES_texture_float`, `OES_texture_float_linear`, `WEBGL_depth_texture`, 
+`OES_standard_derivatives`.  
 Recommendation is to use latest Firefox / Chrome running on GPU.
 
 [Live Demo](http://dblsai.github.io/WebGL-Fluid)     
@@ -22,6 +23,14 @@ FEATURES
 
 * **Caustics**  
 ![Caustic1](/pics/BetaMouse.png)   
+
+Computing underwater caustics accurately is a complex process: millions of individual photons are involved.  
+
+Here we simplify the computation process by making some assumptions:  
+* `Sun is directly above`  
+* `floor is lit by rays emanating vertically above the point of interest: caustics will be maximal for vertical rays and will not be as visible for rays entering water sideways`  
+
+for each point we calculate two refract rays, one is using vertical normal and the other is using the real normal. And we get the caustic value by compare the two refract rays, Then write the caustic value to the caustic map.
 
 
 WATER SIMULATION
