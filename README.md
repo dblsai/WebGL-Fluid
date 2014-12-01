@@ -47,7 +47,7 @@ out the water simualtion.
 
 * **Height Map**   
 ![HeightMap](/pics/HeightMap.png)  
-As you can see, the height of vertex is changed after this shader.  
+As you can see, the height of vertex is changed after this shader.    
 `height.y += drag` (drag is based on dist to click center)     
 
 * **Normal Map**    
@@ -57,14 +57,14 @@ The normal is calculated and shaded correctly after this shader.
 
 * **Step Simulation**    
 ![StepSimulation](/pics/Simulation.png)  
-The wave propagates and attenuates due to this shader.  
+The wave propagates and attenuates due to this shader.      
 `speed.y += (averageHeight - Height)`  
 `averageHeight = (sum of 4 neighbouring Heights)/4`  
 
 
 * **Sphere Move Simulation**  
 ![SphereMovement](/pics/BetaCaustics.png) 
-This shader calculates wave pattern based on sphere movement. 
+This shader calculates wave pattern based on sphere movement.  
 `height.y += volume in water (oldCenter)`   
 `height -= volume in water(newCenter)`  
 
