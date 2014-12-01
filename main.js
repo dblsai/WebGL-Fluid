@@ -740,7 +740,7 @@ function drawObj(model){
 function drawWater(){
 
         gl.enable(gl.CULL_FACE);
-        for(var i=0 ;i<1; i++){
+        for(var i=0 ;i<2; i++){
               
             gl.cullFace(i ? gl.BACK : gl.FRONT);
 
