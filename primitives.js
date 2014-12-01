@@ -339,15 +339,15 @@ var sphereObj = createSphere(0.25, 12, 12);
         }
       }
       plane.numIndices = plane.indices.length;
-    /*  console.log("plane normal: " + plane.normals);
+      console.log("plane normal: " + plane.normals);
       console.log("plane vertex: " + plane.vertices);
       console.log("plane texcoord: " + plane.texcoords);
       console.log("plane indice: " + plane.indices);
-      console.log("plane indice num: " + plane.numIndices);*/
+      console.log("plane indice num: " + plane.numIndices);
     return plane;
   }
 
-  var planeWater = plane(256, 256, 0.0);
+  var planeWater = plane(200, 200, 0.0);
   var quadWater = plane(1, 1, 0.0);
 
 
