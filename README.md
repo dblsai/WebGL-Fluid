@@ -48,24 +48,32 @@ out the water simualtion.
 * **Height Map**   
 ![HeightMap](/pics/HeightMap.png)  
 As you can see, the height of vertex is changed after this shader.  
+`height.y += drag` (drag is based on dist to click center)     
 
 * **Normal Map**    
-![HeightMap](/pics/NormalMap.png)  
-The normal is calculated and shaded correctly after this shader.  
+![NormalMap](/pics/NormalMap.png)  
+The normal is calculated and shaded correctly after this shader. 
+`normal = cross (dHeight/dx, dHeight/dy)`    
 
 * **Step Simulation**    
-![HeightMap](/pics/Simulation.png)  
+![StepSimulation](/pics/Simulation.png)  
 The wave propagates and attenuates due to this shader.  
+`speed.y += (averageHeight - Height)`  
+`averageHeight = (sum of 4 neighbouring Heights)/4`  
+
 
 * **Sphere Move Simulation**  
+![SphereMovement](/pics/BetaCaustics.png) 
 This shader calculates wave pattern based on sphere movement. 
-![Caustic2](/pics/BetaCaustics.png) 
+`height.y += volume in water (oldCenter)`   
+`height -= volume in water(newCenter)`  
+
 
 
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
 
-![Analysis] (/pics/Analysis.png)
+![Analysis](/pics/Analysis.png)
 
 As you can see, as more simulation shader added into the pipeline, the performance evetually drops. 
 But all the fps is above 60, which means our WebGL Water is truly fast and real-time.  
