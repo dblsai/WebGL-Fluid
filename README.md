@@ -6,8 +6,8 @@ This project requires advanced graphics card together with a WebGL capable brows
 Please also ensure that you have below WebGL extensions, `OES_texture_float`, `OES_texture_float_linear`, `WEBGL_depth_texture`, `OES_standard_derivatives`.
 Recommendation is to use latest Firefox / Chrome running on GPU.
 
-![Live Demo]Live Demo(http://dblsai.github.io/WebGL-Fluid) 
-![Video Demo]Video Demo(https://www.youtube.com/watch?v=Wq27HIlzpmQ&feature=youtu.be) 
+[Live Demo](http://dblsai.github.io/WebGL-Fluid) 
+[Video Demo](https://www.youtube.com/watch?v=Wq27HIlzpmQ&feature=youtu.be) 
 
 FEATURES
 -------------------------------------------------------------------------------
