@@ -90,17 +90,17 @@
         float diffuse = max(0.0, dot(refractedLight, normal));
         vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
 
-        //if (point.y < data.r+0.01) {
+      if (point.y < data.r) {
            vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
            scale += diffuse * caustic.r * 1.0 * caustic.g;
-       // } else {
+        } else {
           vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
           diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 1.0 / 2.0)));
           scale += diffuse * 0.5;
-       // }
+        }
         
-        //return wallColor * scale;
-        return vec3(caustic.r);
+        return wallColor * scale;
+       // return vec3(caustic.r);
   }
 
     void main(void) {
@@ -377,7 +377,7 @@
 
      varying vec3 oldPos;
      varying vec3 newPos;
-     varying vec3 ray;
+     varying vec3 refractedLight;
 
      float poolHeight = 0.8;
      vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
@@ -395,24 +395,26 @@
     }
      vec3 project(vec3 origin, vec3 ray, vec3 refractedLight) {
         vec2 tcube = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
-        origin += ray * tcube.y;
-        float tplane = (-origin.y - 1.0) / refractedLight.y;
-        return origin + refractedLight * tplane;
+        origin += ray * tcube.y;   //tcube  = [tNear, tFar]
+        float tplane = ( - poolHeight -origin.y) / refractedLight.y;
+        origin += refractedLight * tplane;
+        return origin;
      }
   
      void main() {
        vec4 data = texture2D(uSamplerWater, aVertexPosition.xy * 0.5 + 0.5);
        data.gb *= 0.5;  //normal.x, normal.z
        vec3 normal = vec3(data.g, sqrt(1.0 - dot(data.gb, data.gb)), data.b);
+       //vec3 normal = vec3(data.g, sqrt(1.0 - data.g*data.g - data.b*data.b), data.b);
        
-       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
-       ray = refract(-lightDir, normal, IOR_AIR / IOR_WATER);
+       refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+       vec3 refractedRay = refract(-lightDir, normal, IOR_AIR / IOR_WATER);
 
        oldPos = project(aVertexPosition.xzy, refractedLight, refractedLight);
-       newPos = project(aVertexPosition.xzy + vec3(0.0, data.r, 0.0), ray, refractedLight);
+       newPos = project(aVertexPosition.xzy + vec3(0.0, data.r, 0.0), refractedRay, refractedLight);
       
        gl_Position = vec4(0.75 * (newPos.xz + refractedLight.xz / refractedLight.y), 0.0, 1.0);
-       //gl_Position = vec4(aVertexPosition.xyz, 1.0);
+       //gl_Position = vec4(4.0*newPos.xz, 0.0, 1.0);
       
      }
    
@@ -423,12 +425,12 @@
 
     uniform float uSphereRadius;
     uniform vec3 uSphereCenter;
-  //  uniform int OES_standard_derivatives;
+    uniform int OES_standard_derivatives;
     #extension GL_OES_standard_derivatives : enable
 
      varying vec3 oldPos;
      varying vec3 newPos;
-     varying vec3 ray;
+     varying vec3 refractedLight;
 
      vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
      const float IOR_AIR = 1.0;
@@ -447,16 +449,14 @@
 
      void main() {
        
-     //  if(OES_standard_derivatives > 0){
+      // if(OES_standard_derivatives > 0){
           float oldArea = length(dFdx(oldPos)) * length(dFdy(oldPos));
           float newArea = length(dFdx(newPos)) * length(dFdy(newPos)); 
-          gl_FragColor = vec4(oldArea / newArea * 0.2, 1.0, 0.0, 0.0);
+          gl_FragColor = vec4( oldArea/newArea * 0.2, 1.0, 0.0, 0.0);
      //  }else{
-     //     gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
-     //  }
-     
-       vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
-      
+       //   gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
+      // }
+         
       //sphere shadow
        vec3 dir = (uSphereCenter - newPos) / uSphereRadius;
        vec3 area = cross(dir, refractedLight);
@@ -526,7 +526,7 @@
  <script id="interact-normal-fs" type="x-shader/x-fragment">
     precision mediump float;
     uniform sampler2D uSamplerWater;
-    uniform vec2 uDelta;
+    uniform vec2 uDelta;   // [1.0/textureSize, 1.0/textureSize]
     varying vec2 vCoord;
     void main() {   
       vec4 data = texture2D(uSamplerWater, vCoord);
@@ -549,8 +549,8 @@
       vec2 dy = vec2(0.0, uDelta.y);
       float average = 0.25 * ( texture2D(uSamplerWater, vCoord - dx).r + texture2D(uSamplerWater, vCoord - dy).r +
         texture2D(uSamplerWater, vCoord + dx).r + texture2D(uSamplerWater, vCoord  + dy).r);
-      data.a += (average - data.r) * 2.0; 
-      data.a *= 0.993;
+      data.a += (average - data.r) * 2.0;   //get speed
+      data.a *= 0.993;   //attenuate speed
       data.r += data.a;   //update height
       gl_FragColor = data;
     }

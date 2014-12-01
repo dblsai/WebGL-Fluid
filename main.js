@@ -261,7 +261,7 @@
 
         causticProg.samplerWaterUniform = gl.getUniformLocation(causticProg, "uSamplerWater");
         causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
-        //causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
+        causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
         causticProg.sphereRadiusUniform = gl.getUniformLocation(causticProg, "uSphereRadius");
         causticProg.sphereCenterUniform = gl.getUniformLocation(causticProg, "uSphereCenter");
 
@@ -854,7 +854,7 @@ function drawCaustic(){
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
         gl.uniform1i(causticProg.samplerWaterUniform,0);
 
-        //gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
+        gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
         gl.uniform1f(causticProg.sphereRadiusUniform, sphere.radius);
         gl.uniform3fv(causticProg.sphereCenterUniform, sphere.center);
 
@@ -1109,11 +1109,12 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
         drawNormal();
         drawSimulation();
         drawSimulation();
-        drawCaustic();
         drawInteraction();
-       // console.log("old center: "+ vec3.str(sphere.oldcenter));
+        // console.log("old center: "+ vec3.str(sphere.oldcenter));
        // console.log("new center: "+ vec3.str(sphere.center));
         sphere.oldcenter = vec3.create(sphere.center);
+        drawCaustic();
+    
     }
 
 
