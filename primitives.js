@@ -339,11 +339,11 @@ var sphereObj = createSphere(0.25, 12, 12);
         }
       }
       plane.numIndices = plane.indices.length;
-      console.log("plane normal: " + plane.normals);
-      console.log("plane vertex: " + plane.vertices);
-      console.log("plane texcoord: " + plane.texcoords);
-      console.log("plane indice: " + plane.indices);
-      console.log("plane indice num: " + plane.numIndices);
+      // console.log("plane normal: " + plane.normals);
+      // console.log("plane vertex: " + plane.vertices);
+      // console.log("plane texcoord: " + plane.texcoords);
+      // console.log("plane indice: " + plane.indices);
+      // console.log("plane indice num: " + plane.numIndices);
     return plane;
   }
 

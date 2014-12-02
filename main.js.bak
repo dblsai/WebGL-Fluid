@@ -35,7 +35,7 @@
     var nmlMatrix = mat4.create();
     var eyePos;
     var radius = 4.0;
-    var azimuth = 0.0;//0.5*Math.PI;
+    var azimuth = 0.5*Math.PI;
     var elevation = 0.5;
     var fov = 45.0;
     var eye = sphericalToCartesian(radius, azimuth, elevation);
@@ -75,6 +75,7 @@
     var water = {};   //a plane
     var quad = {};
     var sphere = {};
+    var objModel;
 
 
 
@@ -181,6 +182,10 @@
         objProg.mvMatrixUniform = gl.getUniformLocation(objProg, "uMVMatrix");
         objProg.nmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
         objProg.CenterUniform = gl.getUniformLocation(objProg, "uCenter");
+        objProg.sphereCenterUniform = gl.getUniformLocation(objProg, "uSphereCenter");
+        objProg.sphereRadiusUniform = gl.getUniformLocation(objProg, "uSphereRadius");
+        objProg.samplerWaterUniform = gl.getUniformLocation(objProg, "uSamplerWater");
+        objProg.samplerCausticUniform = gl.getUniformLocation(objProg, "uSamplerCaustic");
         //objProg.RadiusUniform = gl.getUniformLocation(objProg, "uRadius");
        // objProg.diffuseColorUniform = gl.getUniformLocation(objProg, "uDiffuseColor");
        // objProg.samplerTileUniform = gl.getUniformLocation(objProg, "uSampler");
@@ -455,6 +460,25 @@ function initBuffers(model, primitive){
         model.IBO.numItems = primitive.numIndices;
 }
 
+
+function initObjs(){
+
+    var objRaw = loadObj("objs/suzanne.obj");
+
+    objRaw.addCallback(function () {
+        objModel = new createModel(gl, objRaw);
+        var sum = 0;
+        for(var i=0; i<objModel.numGroups(); i++){
+            sum+= objModel.numIndices(i);
+        }
+        console.log ("obj created with number of indices: " + sum);
+        //console.log("primitive vertices: " + objRaw.vertices(0));
+    });
+    objRaw.executeCallBackFunc();
+    registerAsyncObj(gl, objRaw);
+
+}
+
    
 
 
@@ -603,32 +627,14 @@ function initBuffers(model, primitive){
         mat4.identity(mvMatrix);
         mat4.multiply(mvMatrix,view);
 
-      /*  mat4.translate(mvMatrix, [0.0, 0.0, -4.0]);
-        mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
-        mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);*/
-
-        /*var xAxis = vec3.create( [mvMatrix[0], mvMatrix[4], mvMatrix[8]] );
-        var yAxis = vec3.create( [mvMatrix[1], mvMatrix[5], mvMatrix[9]] );
-        var zAxis = vec3.create( [mvMatrix[2], mvMatrix[6], mvMatrix[10]] );
-        var offset = vec3.create( [mvMatrix[3], mvMatrix[7], mvMatrix[11]] );
-        var xNew = vec3.dot(vec3.negate(offset),xAxis);
-        var yNew = vec3.dot(vec3.negate(offset),yAxis);
-        var zNew = vec3.dot(vec3.negate(offset),zAxis);
-        //console.log("offset: "+ vec3.str(vec3.negate(offset)));
-        console.log("axis: "+ vec3.str(xAxis)+"," +vec3.str(yAxis)+","+vec3.str(zAxis) );
-        //console.log("eye pos calculation: "+ xNew+"," +yNew+","+zNew );
-        eyePos = vec3.create([xNew,yNew,zNew]);
-        console.log("eyePos = " + vec3.str(eyePos) +"           eye = " + eye);*/
-        
-
         mat4.inverse(mvMatrix,nmlMatrix);
         mat4.transpose(nmlMatrix,nmlMatrix);
 
 
         drawPool();
         drawSkyBox();
-        drawObj(sphere);
+        //drawObj(sphere);
+        drawObj(objModel);
         drawWater();
     }
 
@@ -711,24 +717,60 @@ function drawSkyBox() {
 
 function drawObj(model){
 
-        gl.useProgram(objProg);
+         gl.useProgram(objProg);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, model.VBO);
-        gl.vertexAttribPointer(objProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(objProg.vertexPositionAttribute);
+        if(model == sphere){
+            gl.bindBuffer(gl.ARRAY_BUFFER, model.VBO);
+            gl.vertexAttribPointer(objProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(objProg.vertexPositionAttribute);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, model.NBO);
-        gl.vertexAttribPointer(objProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(objProg.vertexNormalAttribute);
-
+            gl.bindBuffer(gl.ARRAY_BUFFER, model.NBO);
+            gl.vertexAttribPointer(objProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(objProg.vertexNormalAttribute);
         setMatrixUniforms(objProg);
       // console.log("center is "+ vec3.str(model.center));
        //console.log("radius is " + model.radius);
         gl.uniform3fv(objProg.CenterUniform, model.center);
         //gl.uniform1f(objProg.RadiusUniform, model.radius);
-
+        gl.uniform3fv(objProg.sphereCenterUniform, sphere.center);
+        gl.uniform1f(objProg.sphereRadiusUniform, sphere.radius);
+        
+        gl.activeTexture(gl.TEXTURE2);    
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(objProg.samplerWaterUniform,2);
+        
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+        gl.uniform1i(objProg.samplerCausticUniform,3);
+        
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.IBO);
         gl.drawElements(gl.TRIANGLES, model.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+            
+        }
+        else{
+             console.log("drawing obj instead of sphere");
+            for(var i = 0; i < model.numGroups(); i++) {
+                //console.log("model VBO: " +model.VBO(i));
+                    gl.bindBuffer(gl.ARRAY_BUFFER, model.VBO(i));
+                    gl.vertexAttribPointer(objProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+                    gl.enableVertexAttribArray(objProg.vertexPositionAttribute);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, model.NBO(i));
+                    gl.vertexAttribPointer(objProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+                    gl.enableVertexAttribArray(objProg.vertexNormalAttribute);
+
+                    setMatrixUniforms(objProg);
+                  // console.log("center is "+ vec3.str(model.center));
+                   //console.log("radius is " + model.radius);
+                    gl.uniform3fv(objProg.CenterUniform, sphere.center);
+                    //gl.uniform1f(objProg.RadiusUniform, model.radius);
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,model.IBO(i));
+                    gl.drawElements(gl.TRIANGLES, model.numIndices(i), gl.UNSIGNED_SHORT, 0);
+              }
+
+        }
+>>>>>>> e0e32bdecbaaea9daee6ae1e8442d3d7f35556d5
 
         gl.disableVertexAttribArray(objProg.vertexPositionAttribute);
         gl.disableVertexAttribArray(objProg.vertexNormalAttribute);
@@ -1016,107 +1058,32 @@ function initFrameBuffer(texture, size){   // rendering to a texture
 
 }
 
-
-function initTracer(){
- // tracer.eye = vec3.create(eyePos);
- tracer.eye = vec3.create(eye);
-
-  var v = gl.getParameter(gl.VIEWPORT);   //{0,0,canvas.width,canvas.height}
-  //var m = gl.modelviewMatrix.m;
-  var point00 = vec3.create( [v[0], v[1], 1] );  // {x,y,depth}
-  var point10 = vec3.create( [v[0]+v[2], v[1], 1] );
-  var point01 = vec3.create( [v[0], v[1]+v[3], 1] ); 
-  var point11 = vec3.create( [v[0]+v[2], v[1]+v[3], 1]);   
-  //console.log("viewport data: " +v[0] + "," + v[1] + "," + v[2] + "," + v[3]);
-  //console.log("point data: " + vec3.str(point00) + "," +  vec3.str(point10) + "," + vec3.str(point01) + "," + vec3.str(point11));
-
-  tracer.ray00 = vec3.unproject(point00, mvMatrix, pMatrix, v);
-  vec3.subtract(tracer.ray00, tracer.eye, tracer.ray00);
-
-  tracer.ray10 = vec3.unproject(point10, mvMatrix, pMatrix, v);
-  vec3.subtract(tracer.ray10, tracer.eye, tracer.ray10);
-
-  tracer.ray01 = vec3.unproject(point01, mvMatrix, pMatrix, v);
-  vec3.subtract(tracer.ray01, tracer.eye, tracer.ray01);
-
- tracer.ray11 = vec3.unproject(point11, mvMatrix, pMatrix, v);
-  vec3.subtract(tracer.ray11, tracer.eye, tracer.ray11);
-
- //console.log("initial tracer: \n" + vec3.str(tracer.ray00) + "\n" +  vec3.str(tracer.ray10) + "\n" + vec3.str(tracer.ray01) + "\n" + vec3.str(tracer.ray11));
-  tracer.viewport = v;
-}
-
-function rayEyeToPixel(h,v){   //shoots ray from eye to a pixel, returns unit ray direction
-    var ray = vec3.create();
-
-    var x = (h - tracer.viewport[0]) / tracer.viewport[2];
-    var y = 1.0 - (v - tracer.viewport[1]) / tracer.viewport[3];
-
-    //console.log("coord is: "+x+","+y);
-    var rayY0 = vec3.create();
-    vec3.lerp(tracer.ray00, tracer.ray10, x, rayY0);
-
-    var rayY1 = vec3.create();
-    vec3.lerp(tracer.ray01, tracer.ray11, x, rayY1);
-
-    vec3.lerp(rayY0, rayY1, y, ray);
-    vec3.normalize(ray,ray);
-   // console.log("the ray passing the pixel is " + vec3.str(ray));
-    return ray;
-
-}
-
-function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersection
-  var offset = vec3.create();
-  var theRay = vec3.create(ray);
-  var theCenter = vec3.create(center);
-  var theOrigin = vec3.create(origin);
-  vec3.subtract(theOrigin, theCenter, offset);
-//console.log("origin: " + vec3.str(theOrigin) + "\nray: "+vec3.str(theRay) + "\ncenter" + vec3.str(theCenter)+"\noffset"+vec3.str(offset));
-  var a = vec3.dot(theRay, theRay);
-  var b = 2.0 * vec3.dot(theRay, offset);
-  var c = vec3.dot(offset, offset) - radius * radius;
-  var discriminant = b * b - 4.0* a * c;
-
-//console.log("a: " + a + "\nb: "+b + "\nc" + c+"\ndiscriminant"+discriminant);
-  if (discriminant > 0.0) {
-    t = (-b - Math.sqrt(discriminant)) / (2.0 * a);
-    hit = vec3.create();
-    vec3.scale(theRay, t, theRay);
-    //console.log("the scaled ray: "+ vec3.str(theRay));
-    vec3.add(theOrigin, theRay, hit);
-   // console.log("hit t: " + t+"\nhit point: " + vec3.str(hit));
-    normal =  vec3.create(hit);
-    normal = vec3.subtract(normal, theCenter);
-    normal = vec3.scale(normal, 1.0/radius);
-    //console.log("hit point: " + vec3.str(hit) + "\nhit normal: "+vec3.str(normal));
-    return hit;
-  }
-  return null;
-}
-
-    function animate() {
-        var timeNow = new Date().getTime();
-        if (lastTime != 0) {
-            var elapsed = timeNow - lastTime;
-
-          //  xRot += (90 * elapsed) / 1000.0;
-           // yRot += (90 * elapsed) / 1000.0;
-           //zRot += (90 * elapsed) / 1000.0;
+    function registerAsyncObj( gl, asyncObj ){
+        if( !gl.asyncObjArray ){
+            gl.asyncObjArray = [];
         }
-        lastTime = timeNow;
-
-        drawNormal();
-        drawSimulation();
-        drawSimulation();
-        drawInteraction();
-        // console.log("old center: "+ vec3.str(sphere.oldcenter));
-       // console.log("new center: "+ vec3.str(sphere.center));
-        sphere.oldcenter = vec3.create(sphere.center);
-        drawCaustic();
-    
+        gl.asyncObjArray[gl.asyncObjArray.length] = asyncObj;
     }
 
+    function check(){
+        var i;
+        var n;
+        n = gl.asyncObjArray.length;
+        //check if resources are ready, one by one
+        for( i = 0; i < gl.asyncObjArray.length; ++i ){
+            if( gl.asyncObjArray[i].isReady() ){
+                //Run object's registered callback functions
+                gl.asyncObjArray[i].executeCallBackFunc();
+                n -= 1;
+            }
+        }
+        if( n === 0 ){
+           tick();
+        }
+        else{
+            setTimeout( check, 500, gl );
+        }
+    }
 
     function tick() {
         var now = Date.now() / 1000;  
@@ -1139,6 +1106,28 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
         drawScene();
      
         animate();
+    }
+
+
+    function animate() {
+        var timeNow = new Date().getTime();
+        if (lastTime != 0) {
+            var elapsed = timeNow - lastTime;
+          //  xRot += (90 * elapsed) / 1000.0;
+           // yRot += (90 * elapsed) / 1000.0;
+           //zRot += (90 * elapsed) / 1000.0;
+        }
+        lastTime = timeNow;
+
+        drawNormal();
+        drawSimulation();
+        drawSimulation();
+        drawInteraction();
+        // console.log("old center: "+ vec3.str(sphere.oldcenter));
+       // console.log("new center: "+ vec3.str(sphere.center));
+        sphere.oldcenter = vec3.create(sphere.center);
+        drawCaustic();
+    
     }
 
 
@@ -1168,17 +1157,16 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       initBuffers(sphere, sphereObj);
       initBuffers(water, planeWater);
       initBuffers(quad, screenQuad);
-      sphere.center = vec3.create(0.0,0.0,0.0);
-      sphere.oldcenter = vec3.create(0.0,0.0,0.0);
+      sphere.center = vec3.create([0.0,0.5,0.0]);
+      sphere.oldcenter = vec3.create(sphere.center);
       sphere.radius = sphereObj.radius;
-     // console.log("sphere radius: "+sphere.radius);
 
        // initTexture();
        pool.Texture = gl.createTexture();
        initTexture(pool.Texture, "tile/tile.png");
        //initTexture(pool.Texture, "tile/tile2.jpg");
        water.TextureA = gl.createTexture();
-      water.TextureB = gl.createTexture();
+       water.TextureB = gl.createTexture();
        water.TextureC = gl.createTexture();
 
       var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
@@ -1197,11 +1185,15 @@ function rayIntersectSphere(origin, ray, center, radius){ // ray sphere intersec
       }*/
 
        initSkyBoxTexture(); 
+
+        initObjs();
    
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
 
-        tick();
+        check();
+        //tick();
+       
     }
 
 
