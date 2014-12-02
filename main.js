@@ -181,6 +181,10 @@
         objProg.mvMatrixUniform = gl.getUniformLocation(objProg, "uMVMatrix");
         objProg.nmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
         objProg.CenterUniform = gl.getUniformLocation(objProg, "uCenter");
+        objProg.sphereCenterUniform = gl.getUniformLocation(objProg, "uSphereCenter");
+        objProg.sphereRadiusUniform = gl.getUniformLocation(objProg, "uSphereRadius");
+        objProg.samplerWaterUniform = gl.getUniformLocation(objProg, "uSamplerWater");
+        objProg.samplerCausticUniform = gl.getUniformLocation(objProg, "uSamplerCaustic");
         //objProg.RadiusUniform = gl.getUniformLocation(objProg, "uRadius");
        // objProg.diffuseColorUniform = gl.getUniformLocation(objProg, "uDiffuseColor");
        // objProg.samplerTileUniform = gl.getUniformLocation(objProg, "uSampler");
@@ -726,7 +730,17 @@ function drawObj(model){
        //console.log("radius is " + model.radius);
         gl.uniform3fv(objProg.CenterUniform, model.center);
         //gl.uniform1f(objProg.RadiusUniform, model.radius);
-
+        gl.uniform3fv(objProg.sphereCenterUniform, sphere.center);
+        gl.uniform1f(objProg.sphereRadiusUniform, sphere.radius);
+        
+        gl.activeTexture(gl.TEXTURE2);    
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(objProg.samplerWaterUniform,2);
+        
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+        gl.uniform1i(objProg.samplerCausticUniform,3);
+        
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.IBO);
         gl.drawElements(gl.TRIANGLES, model.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 

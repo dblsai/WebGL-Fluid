@@ -129,7 +129,7 @@
   }
     void main(void) {
         vec3 lightDir = normalize(vVertexPosition-lightPos);
-        float diffuseTerm = clamp(dot(normalize(lightDir), normalize(vVertexNormal) ), 0.0, 1.0);
+        //float diffuseTerm = clamp(dot(normalize(lightDir), normalize(vVertexNormal) ), 0.0, 1.0);
         vec3 color = getWallColor(vVertexPosition);
         vec4 data = texture2D(uSamplerWater, vVertexPosition.xz * 0.5 + 0.5);
         waterHeight = data.r;
@@ -197,17 +197,40 @@
     //uniform sampler2D uSamplerSphere;
     //varying vec2 vTextureCoord;
    // uniform vec3 uDiffuseColor;
+   uniform float uSphereRadius;
+    uniform vec3 uSphereCenter;
+    uniform sampler2D uSamplerWater; 
+    uniform sampler2D uSamplerCaustic;
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
-    vec3 lightPos = vec3(0.0,6.0,0.0);
+    vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
+
+    const float IOR_AIR = 1.0;
+    const float IOR_WATER = 1.333;
     vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
+    
+    vec3 getSphereColor(vec3 point,  vec3 sphereCenter, float sphereRadius) {
+      vec3 color = vec3(0.5);
+      color *= 1.0 - 0.9 / pow((1.0 + sphereRadius - abs(point.x)) / sphereRadius, 3.0);
+      color *= 1.0 - 0.9 / pow((1.0 + sphereRadius - abs(point.z)) / sphereRadius, 3.0);
+      color *= 1.0 - 0.9 / pow((point.y + 1.0 + sphereRadius) / sphereRadius, 3.0);
+      vec3 sphereNormal = (point - sphereCenter) / sphereRadius;
+      vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+      float diffuse = max(0.0, dot(-refractedLight, sphereNormal)) * 0.5;
+      vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
+      if (point.y < data.r) {
+        vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+        diffuse *= caustic.r * 4.0;
+      }
+      color += diffuse;
+      return color;
+  }
     void main(void) {
         //gl_FragColor = texture2D(uSamplerSphere, vTextureCoord);
-        vec3 lightDir = normalize(vVertexPosition-lightPos);
-        float diffuseTerm = clamp(dot(-lightDir, vVertexNormal), 0.35, 1.0);
-        vec3 diffuseColor = vec3(1.0, 1.0, 1.0);
-        vec3 color = diffuseColor*diffuseTerm;
-        if(vVertexPosition.y < 0.0){
+       
+        vec3 color = getSphereColor(vVertexPosition, uSphereCenter, uSphereRadius);
+        vec4 info = texture2D(uSamplerWater, vVertexPosition.xz * 0.5 + 0.5);
+        if(vVertexPosition.y < info.r){
           color *= underwaterColor;
         }
          gl_FragColor = vec4(color,1.0);
