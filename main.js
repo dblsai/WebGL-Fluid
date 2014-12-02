@@ -610,7 +610,7 @@ function initObjs(){
                 vec3.add(sphere.center, offsetHit);
                 //make sure the sphere is in the boundary of pool
                 sphere.center[0] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[0]));
-                sphere.center[1] = Math.max(sphere.radius - 0.8, Math.min(10, sphere.center[1]));
+                sphere.center[1] = Math.max(sphere.radius - 0.65 - 0.3, Math.min(10, sphere.center[1]));
                 sphere.center[2] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[2]));
                 //console.log("drag center: " + vec3.str(sphere.center));
             }
@@ -633,8 +633,8 @@ function initObjs(){
 
         drawPool();
         drawSkyBox();
-        //drawObj(sphere);
-        drawObj(objModel);
+        drawObj(sphere);
+        //drawObj(objModel);
         drawWater();
     }
 

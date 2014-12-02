@@ -18,40 +18,6 @@
     attribute vec3 aVertexPosition;
     attribute vec2 aTextureCoord;
     attribute vec3 aVertexNormal;
-
-    uniform mat4 uMVMatrix;
-    uniform mat4 uPMatrix;
-    uniform mat4 uNmlMatrix;
-
-    varying vec2 vTextureCoord;
-    varying vec3 vVertexPosition;
-    varying vec3 vVertexNormal;
-
-    void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-       // vVertexPosition = (uMVMatrix*vec4(aVertexPosition,1.0)).xyz;
-        vVertexPosition = aVertexPosition;
-        vTextureCoord = aTextureCoord;
-       // vVertexNormal = aVertexNormal;
-       vVertexNormal = (uNmlMatrix * vec4(aVertexNormal,0.0)).xyz;  
-    }
-</script>
-<html>
-
-<head>
-<title>WebGL Fluid</title>
-<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
-
-
-<script type="text/javascript" src="glMatrix-0.9.5.js"></script>
-<script type="text/javascript" src="webgl-utils.js"></script>
-<script type="text/javascript" src="main.js"></script>
-<script type="text/javascript" src ="primitives.js"></script>
-
-<script id="pool-vs" type="x-shader/x-vertex">
-    attribute vec3 aVertexPosition;
-    attribute vec2 aTextureCoord;
-    attribute vec3 aVertexNormal;
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;
@@ -59,9 +25,11 @@
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
     void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+       vVertexPosition = aVertexPosition;
+       vVertexPosition.y -= 0.3;
+        gl_Position = uPMatrix * uMVMatrix * vec4(vVertexPosition, 1.0);
        // vVertexPosition = (uMVMatrix*vec4(aVertexPosition,1.0)).xyz;
-        vVertexPosition = aVertexPosition;
+       
         vTextureCoord = aTextureCoord;
        // vVertexNormal = aVertexNormal;
        vVertexNormal = (uNmlMatrix * vec4(aVertexNormal,0.0)).xyz;  
@@ -85,7 +53,7 @@
    // vec3 lightDir = vec3(0.5,1.2,0.3);
     vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
     float lightIntensity = 1.4;
-    float poolHeight = 0.8;
+    float poolHeight = 0.65;
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
@@ -120,15 +88,15 @@
         float diffuse = max(0.0, dot(refractedLight, normal));
         vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
       if (point.y < data.r) {
-           vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
-           scale += diffuse * caustic.r * 1.0 * caustic.g;
+           vec4 caustic = texture2D(uSamplerCaustic, 0.65 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+           scale += diffuse * caustic.r * 1.6 * caustic.g;
         } else {
           vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
           diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 1.0 / 2.0)));
-          scale += diffuse * 0.5;
+          scale += diffuse * 0.7;
         }
         
-        return wallColor * scale;
+        return wallColor * scale ;
        // return vec3(caustic.r);
   }
     void main(void) {
@@ -277,7 +245,7 @@
    // varying vec3 vVertexNormal;
     float waterHeight = 0.0;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
-    float poolHeight = 0.8;
+    float poolHeight = 0.65;
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
     float intersectSphere(vec3 origin, vec3 ray, vec3 sphereCenter, float sphereRadius) {
@@ -409,7 +377,7 @@
      varying vec3 oldPos;
      varying vec3 newPos;
      varying vec3 refractedLight;
-     float poolHeight = 0.8;
+     float poolHeight = 0.65;
      vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
      const float IOR_AIR = 1.0;
      const float IOR_WATER = 1.333;
@@ -461,7 +429,7 @@
      vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
      const float IOR_AIR = 1.0;
      const float IOR_WATER = 1.333;
-     float poolHeight = 0.8;
+     float poolHeight = 0.65;
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
         vec3 tMin = (cubeMin - origin) / ray;
         vec3 tMax = (cubeMax - origin) / ray;
