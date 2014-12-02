@@ -52,7 +52,7 @@ As you can see, the height of vertex is changed after this shader.
 
 * **Normal Map**    
 ![NormalMap](/pics/NormalMap.png)  
-The normal is calculated and shaded correctly after this shader. 
+The normal is calculated and shaded correctly after this shader.   
 `normal = cross (dHeight/dx, dHeight/dy)`    
 
 * **Step Simulation**    
