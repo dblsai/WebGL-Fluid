@@ -456,7 +456,7 @@
        float dist = dot(dir, -refractedLight);
        shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);
        shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
-       shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
+      // shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
        gl_FragColor.g = shadow;
       
       //caustics
