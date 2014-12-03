@@ -165,14 +165,16 @@
 </script>
 
 <script id="obj-fs" type="x-shader/x-fragment">
-    precision mediump float;
+    precision highp float;
     //uniform sampler2D uSamplerSphere;
     //varying vec2 vTextureCoord;
    // uniform vec3 uDiffuseColor;
    uniform float uSphereRadius;
     uniform vec3 uSphereCenter;
+    uniform int uIsSphere;
     uniform sampler2D uSamplerWater; 
     uniform sampler2D uSamplerCaustic;
+
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
@@ -197,15 +199,30 @@
       color += diffuse;
       return color;
   }
+
+
     void main(void) {
-        //gl_FragColor = texture2D(uSamplerSphere, vTextureCoord);
-       
-        vec3 color = getSphereColor(vVertexPosition, uSphereCenter, uSphereRadius);
-        vec4 info = texture2D(uSamplerWater, vVertexPosition.xz * 0.5 + 0.5);
-        if(vVertexPosition.y < info.r){
+        vec3 color;
+        vec4 data = texture2D(uSamplerWater, vVertexPosition.xz * 0.5 + 0.5);
+        if(uIsSphere == 1){
+          color = getSphereColor(vVertexPosition, uSphereCenter, uSphereRadius);
+       }
+       else{
+          color = vec3(1.0, 1.0, 1.0);
+          color *= clamp(dot(lightDir, vVertexNormal), 0.20,1.0);
+          if(vVertexPosition.y < data.r){
+            vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
+            vec4 caustic = texture2D(uSamplerCaustic, 0.75 * (vVertexPosition.xz - vVertexPosition.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
+            if(caustic.r> 0.2){
+              color *= caustic.r * 4.0;
+            }
+          }
+       }
+      if(vVertexPosition.y < data.r){
           color *= underwaterColor;
+
         }
-         gl_FragColor = vec4(color,1.0);
+        gl_FragColor = vec4(color,1.0);
     }
 </script>
 
@@ -237,6 +254,7 @@
     uniform samplerCube uSamplerSky;   //top water reflects skybox
     uniform sampler2D uSamplerWater; 
     uniform sampler2D uSamplerCaustic;
+    uniform sampler2D uSamplerObj;    //packed obj infor
     uniform vec3 uEyePosition;
     uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
     uniform float uSphereRadius;

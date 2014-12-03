@@ -186,6 +186,7 @@
         objProg.sphereRadiusUniform = gl.getUniformLocation(objProg, "uSphereRadius");
         objProg.samplerWaterUniform = gl.getUniformLocation(objProg, "uSamplerWater");
         objProg.samplerCausticUniform = gl.getUniformLocation(objProg, "uSamplerCaustic");
+        objProg.isSphereUniform = gl.getUniformLocation(objProg, "uIsSphere");
         //objProg.RadiusUniform = gl.getUniformLocation(objProg, "uRadius");
        // objProg.diffuseColorUniform = gl.getUniformLocation(objProg, "uDiffuseColor");
        // objProg.samplerTileUniform = gl.getUniformLocation(objProg, "uSampler");
@@ -633,8 +634,8 @@ function initObjs(){
 
         drawPool();
         drawSkyBox();
-        drawObj(sphere);
-        //drawObj(objModel);
+        //drawObj(sphere);
+        drawObj(objModel);
         drawWater();
     }
 
@@ -735,6 +736,7 @@ function drawObj(model){
             //gl.uniform1f(objProg.RadiusUniform, model.radius);
             gl.uniform3fv(objProg.sphereCenterUniform, sphere.center);
             gl.uniform1f(objProg.sphereRadiusUniform, sphere.radius);
+            gl.uniform1i(objProg.isSphereUniform, 1);
             
             gl.activeTexture(gl.TEXTURE2);    
             gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
@@ -765,6 +767,15 @@ function drawObj(model){
                    //console.log("radius is " + model.radius);
                     gl.uniform3fv(objProg.CenterUniform, sphere.center);
                     //gl.uniform1f(objProg.RadiusUniform, model.radius);
+                    gl.uniform1i(objProg.isSphereUniform, 0);
+
+                    gl.activeTexture(gl.TEXTURE2);    
+                    gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+                    gl.uniform1i(objProg.samplerWaterUniform,2);
+                    
+                    gl.activeTexture(gl.TEXTURE3);
+                    gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+                    gl.uniform1i(objProg.samplerCausticUniform,3);
 
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,model.IBO(i));
                     gl.drawElements(gl.TRIANGLES, model.numIndices(i), gl.UNSIGNED_SHORT, 0);
