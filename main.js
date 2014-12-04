@@ -9,6 +9,9 @@
     var OES_texture_half_float;
     var OES_texture_half_float_linear;
     var OES_standard_derivatives;
+    var WEBGL_draw_buffers;
+    var WEBGL_depth_texture;
+
 
    // shader programs
     var poolProg;
@@ -25,7 +28,8 @@
     //rendering
     var framebuffer;
     var renderbuffer;
-    var viewportOriginal
+    var framebuffer1;
+    var renderbuffer1;
     var textureSize = 256;
     var textureSize1 = 512;
     var textureSize2 = 1024;
@@ -35,6 +39,7 @@
     var mvMatrixStack = [];
     var pMatrix = mat4.create();
     var nmlMatrix = mat4.create();
+    var lightMatrix = mat4.create();   //matrix for light
     var eyePos;
     var radius = 4.0;
     var azimuth = 0.5*Math.PI;
@@ -77,9 +82,14 @@
     var water = {};   //a plane
     var quad = {};
     var sphere = {};
-    var objModel;
+    var objRaw;     //raw primitive data for obj loading
+    var objModel;    //processed gl object data for obj
+    var depthModel = {};   //put all necessary vbo, ibo info into this object, for drawing depth
 
     var depthTexture;
+    var colorTexture;
+    var lightInvDir = vec3.normalize(vec3.create([-0.5,-1.2,-0.3]));
+ 
 
 
 
@@ -162,6 +172,7 @@
         poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
         poolProg.samplerWaterUniform = gl.getUniformLocation(poolProg, "uSamplerWater");
         poolProg.samplerCausticUniform = gl.getUniformLocation(poolProg, "uSamplerCaustic");
+        poolProg.samplerDepthUniform = gl.getUniformLocation(poolProg, "uSamplerDepth");
         poolProg.sphereRadiusUniform = gl.getUniformLocation(poolProg, "uSphereRadius");
         poolProg.sphereCenterUniform = gl.getUniformLocation(poolProg, "uSphereCenter");
 
@@ -494,19 +505,76 @@ function initBuffers(model, primitive){
 
 function initObjs(){
 
-    //var objRaw = loadObj("objs/suzanne.obj");
-   // var objRaw = loadObj("objs/prism.obj");
-//var objRaw = loadObj("objs/apple.obj");
-//var objRaw = loadObj("objs/appleHighPoly.obj");
-var objRaw = loadObj("objs/duck.obj");
+    //objRaw = loadObj("objs/suzanne.obj");
+   //objRaw = loadObj("objs/prism.obj");
+//objRaw = loadObj("objs/apple.obj");
+//objRaw = loadObj("objs/appleHighPoly.obj");
+    objRaw = loadObj("objs/duck.obj");
+
     objRaw.addCallback(function () {
         objModel = new createModel(gl, objRaw);
         var sum = 0;
         for(var i=0; i<objModel.numGroups(); i++){
-            sum+= objModel.numIndices(i);
+            sum += objModel.numIndices(i);
         }
-        console.log ("obj created with number of indices: " + sum);
+        // console.log ("obj created with number of indices: " + sum);
         //console.log("primitive vertices: " + objRaw.vertices(0));
+          var all = {};
+          all.vertices = [];
+          all.indices = [];
+          all.normals = [];
+          all.texcoords = [];
+          for(var i=0; i<cubePool.vertices.length; i++){
+            all.vertices.push(cubePool.vertices[i]);
+          }
+          for(var i=0; i<objRaw.numGroups(); i++){
+            for(var j=0; j<objRaw.vertices(i).length; j++){
+                all.vertices.push(objRaw.vertices(i)[j]);
+            }
+          }
+
+          for(var i=0; i<cubePool.indices.length; i++){
+            all.indices.push(cubePool.indices[i]);
+          }
+          for(var i=0; i<objRaw.numGroups(); i++){
+              for(var j=0; j<objRaw.indices(i).length; j++){
+                all.indices.push(objRaw.indices(i)[j]);
+            }
+          }
+
+           for(var i=0; i<cubePool.normals.length; i++){
+            all.normals.push(cubePool.normals[i]);
+          }
+          for(var i=0; i<objRaw.numGroups(); i++){
+              for(var j=0; j<objRaw.normals(i).length; j++){
+                all.normals.push(objRaw.normals(i)[j]);
+            }
+          }
+
+           for(var i=0; i<cubePool.texcoords.length; i++){
+            all.texcoords.push(cubePool.texcoords[i]);
+          }
+          for(var i=0; i<objRaw.numGroups(); i++){
+              for(var j=0; j<objRaw.texcoords(i).length; j++){
+                all.texcoords.push(objRaw.texcoords(i)[j]);
+            }
+          }
+
+          //all.numIndices = sum + cubePool.numIndices;
+          all.numIndices = all.indices.length;
+          initBuffers(depthModel, all);
+          // console.log("pool indices: " + cubePool.numIndices);
+          // console.log("obj indices: " + sum);
+          // console.log("depthModel indices: " + depthModel.IBO.numItems);
+
+         // depthModel.VBO = gl.createBuffer();
+         // gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
+         // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(all.vertices), gl.STATIC_DRAW);
+
+         // depthModel.IBO = gl.createBuffer();
+         // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, depthModel.IBO);
+         // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(all.indices), gl.STATIC_DRAW);
+         // depthModel.IBO.numItems = all.numIndices;
     });
     objRaw.executeCallBackFunc();
     registerAsyncObj(gl, objRaw);
@@ -670,7 +738,15 @@ function drawScene() {
     //drawObj(sphere);
     drawObj(objModel);
     drawWater();
-    //drawDepth(); //is it right to draw depth here?
+    drawDepth(); 
+    drawNormal();
+    drawSimulation();
+    drawSimulation();
+    drawInteraction();
+    // console.log("old center: "+ vec3.str(sphere.oldcenter));
+   // console.log("new center: "+ vec3.str(sphere.center));
+    sphere.oldcenter = vec3.create(sphere.center);
+    drawCaustic();
 }
 
 function drawPool(){
@@ -704,6 +780,10 @@ function drawPool(){
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
     gl.uniform1i(poolProg.samplerCausticUniform, 1);
+
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, colorTexture);
+    gl.uniform1i(poolProg.samplerDepthUniform, 3);
 
     setMatrixUniforms(poolProg);
     gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
@@ -1091,19 +1171,39 @@ function drawInteraction(){
 }
 
 function drawDepth(){   //draw depth from light source
-    initDepthFrameBuffer(depthTexture, textureSize1, textureSize1);
+    initDepthFrameBuffer(colorTexture, depthTexture, textureSize1, textureSize1);
     gl.viewport(0, 0, textureSize1, textureSize1);
-    //depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
-    //depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
-    //depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
+
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
     gl.useProgram(depthProg);
-    gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+   // gl.colorMask(false, false, false, false);  //disable writing to color
+    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
     gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
         
-    setMatrixUniforms(depthProg);
-            
-    
+    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
+    var lightProj = mat4.ortho(-10,10,-10,10,-10,20);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
+
+    mat4.identity(lightMatrix);
+    mat4.multiply(lightMatrix,lightView);
+    gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
+    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix);    //model view matrix is from light
+    //gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
+    gl.drawElements(gl.TRIANGLES, objModel.IBO(0).numItems, gl.UNSIGNED_SHORT, 0);
+
+     //-------------- after rendering---------------------------------------------------
+    gl.disableVertexAttribArray(depthProg.vertexPositionAttribute);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+     //gl.colorMask(true, true, true, true); 
+
+    // reset viewport
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     
 }
 
@@ -1125,31 +1225,33 @@ function initColorFrameBuffer(texture, width, height){   // rendering to a textu
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Rendering to colorFrame texture is not supported");
+      alert("Color Framebuffer is not working.");
     }
 
 }
 
-function initDepthFrameBuffer(texture, width, height){   // rendering to a texture
-    framebuffer = framebuffer || gl.createFramebuffer();
-    renderbuffer = renderbuffer || gl.createRenderbuffer();
+function initDepthFrameBuffer(coltexture, deptexture, width, height){   // rendering to a texture
+    framebuffer1 = framebuffer1 || gl.createFramebuffer();
+    //renderbuffer1 = renderbuffer1 || gl.createRenderbuffer();
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer1);
+   // gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer1);
+  //gl.bindFramebuffer(gl.RENDERBUFFER, null);
 
     framebuffer.width = width;
     framebuffer.height = height;
 
-    if (width!= renderbuffer.width ||height!= renderbuffer.height) {
-      renderbuffer.width = width;
-      renderbuffer.height = height;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-    }
+    // if (width!= renderbuffer1.width ||height!= renderbuffer1.height) {
+    //   renderbuffer1.width = width;
+    //   renderbuffer1.height = height;
+    //   gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+    // }
     
-    //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, texture, 0);
+    
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, coltexture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, deptexture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Rendering to depth texture is not supported");
+      alert("Depth Framebuffer is not working.");
     }
 
 }
@@ -1200,8 +1302,7 @@ function tick() {
 
     requestAnimFrame(tick);
     drawScene();
- 
-    animate();
+   // animate();
 }
 
 
@@ -1215,16 +1316,7 @@ function animate() {
     }
     lastTime = timeNow;
 
-    drawNormal();
-    drawSimulation();
-    drawSimulation();
-    drawInteraction();
-    // console.log("old center: "+ vec3.str(sphere.oldcenter));
-   // console.log("new center: "+ vec3.str(sphere.center));
-    sphere.oldcenter = vec3.create(sphere.center);
-    drawCaustic();
-     
-
+    
 }
 
 
@@ -1244,10 +1336,15 @@ function webGLStart() {
     OES_texture_half_float  = gl.getExtension("OES_texture_half_float");
     OES_texture_half_float_linear = gl.getExtension("OES_texture_half_float_linear");
     OES_standard_derivatives = gl.getExtension("OES_standard_derivatives");
-    console.log(OES_standard_derivatives);
-
+    WEBGL_draw_buffers = gl.getExtension( "WEBGL_draw_buffers");
+    WEBGL_depth_texture = gl.getExtension( "WEBGL_depth_texture" );
+    if(!WEBGL_depth_texture){
+        alert("Depth Texture is not available");
+    }
+    //console.log(OES_standard_derivatives);
 
     initShaders();
+
   //  initBuffers();
   initBuffers(sky, cubeSky);
   initBuffers(pool, cubePool);
@@ -1266,12 +1363,15 @@ function webGLStart() {
    water.TextureB = gl.createTexture();
    water.TextureC = gl.createTexture();
    depthTexture = gl.createTexture();
+   colorTexture = gl.createTexture();
 
   var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
-  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, filter, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
+  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
+  //initCustomeTexture(depthTexture, gl.RGBA, filter, gl.FLOAT, textureSize1, textureSize1); 
+  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
 
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);

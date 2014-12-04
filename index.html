@@ -44,6 +44,7 @@
     uniform sampler2D uSamplerTile;
     uniform sampler2D uSamplerCaustic;
     uniform sampler2D uSamplerWater; 
+    uniform sampler2D uSamplerDepth;
    // uniform float waterHeight;
    uniform vec3 uSphereCenter;
    uniform float uSphereRadius;
@@ -112,8 +113,10 @@
         //vec3 hitCube = lightPos - lightDir * tCube.y;
         //if(hitCube.y<0.99)
             //scolor *= vec3(0.5,0.5,0.5);
-      //  color = texture2D(uSamplerCaustic,vVertexPosition.xz * 0.5 + 0.5).rgb;
-        gl_FragColor = vec4(color, 1.0);
+      
+      float depth= texture2D(uSamplerDepth, vVertexPosition.xz * 0.5 + 0.5).r;
+      color = vec3(depth,depth,depth);
+       gl_FragColor = vec4(color, 1.0);
     }
 </script>
 
@@ -654,12 +657,10 @@
       //gl_FragCoord:  window relative coordinate (x, y, z, 1/w) values for the fragment
       //gl_FragCoord.z: depth
       // Encode depth to RGBA texture
-      gl_FragColor = vec4(1.0);// pack(gl_FragCoord.z);
+      gl_FragColor = vec4(1.0,0.0,0.0,1.0);
+       //pack(gl_FragCoord.z);
     }
 </script>
-    
-    
-  
 
 
 </head> 
