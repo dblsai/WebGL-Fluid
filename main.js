@@ -20,12 +20,14 @@
     var simulateProg;
     var objProg;
     var objectProg;
+    var depthProg;
     
     //rendering
     var framebuffer;
     var renderbuffer;
     var viewportOriginal
     var textureSize = 256;
+    var textureSize1 = 512;
     var textureSize2 = 1024;
 
     // matrices
@@ -76,6 +78,8 @@
     var quad = {};
     var sphere = {};
     var objModel;
+
+    var depthTexture;
 
 
 
@@ -236,7 +240,10 @@
             waterProg[i].progNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
             waterProg[i].sphereCenterUniform = gl.getUniformLocation(waterProg[i], "uSphereCenter");
             waterProg[i].sphereRadiusUniform = gl.getUniformLocation(waterProg[i], "uSphereRadius");
-
+            waterProg[i].samplerVBOUniform = gl.getUniformLocation(waterProg[i], "uSamplerVBO");
+            waterProg[i].samplerIBOUniform = gl.getUniformLocation(waterProg[i], "uSamplerIBO");
+            waterProg[i].textureSizeVBOUniform = gl.getUniformLocation(waterProg[i], "uTextureSizeVBO");
+            waterProg[i].textureSizeIBOUniform = gl.getUniformLocation(waterProg[i],"uTextureSizeIBO");
         }
 
         //-----------------------height------------------------------------------------
@@ -319,6 +326,23 @@
         objectProg.newCenterUniform = gl.getUniformLocation(objectProg, "uNewCenter");
         objectProg.oldCenterUniform = gl.getUniformLocation(objectProg,"uOldCenter");
         objectProg.radiusUniform = gl.getUniformLocation(objectProg,"uRadius");
+
+        //---------------------obj shadow map---------------------------------------------------
+        depthProg = gl.createProgram();
+        gl.attachShader(depthProg, getShader(gl, "interact-vs") );
+        gl.attachShader(depthProg, getShader(gl, "interact-sphere-fs") );
+        gl.linkProgram(depthProg);
+
+
+        if (!gl.getProgramParameter(depthProg, gl.LINK_STATUS)) {
+            alert("Could not initialize shadow shader.");
+        }
+        gl.useProgram(depthProg);
+
+        depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
+        depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
+        depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
+
     }
 
     function checkCanDrawToTexture(texture){
@@ -353,7 +377,7 @@
         texture.image.src = url;
     }
 
-    function initFloatTexture( texture, format, filter, type, width, height ){ 
+    function initCustomeTexture( texture, format, filter, type, width, height, data){ 
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
 
@@ -363,12 +387,18 @@
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
 
-        if(OES_texture_float && type == gl.FLOAT){
-            gl.texImage2D( gl.TEXTURE_2D, 0, format, width, height, 0, format, type, null);
-          }
-          else{
-            alert("OES_texture_float is not enabled.");
-          }
+        data = data||null;
+        if(type == gl.FLOAT){
+            if(OES_texture_float){
+                gl.texImage2D( gl.TEXTURE_2D, 0, format, width, height, 0, format, type, data);
+            }
+            else{
+                alert("OES_texture_float is not enabled.");
+            }
+        }
+        else{
+            gl.texImage2D( gl.TEXTURE_2D, 0, format, width, height, 0, format, type, data);
+        }
        // gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
@@ -464,8 +494,11 @@ function initBuffers(model, primitive){
 
 function initObjs(){
 
-    var objRaw = loadObj("objs/suzanne.obj");
-
+    //var objRaw = loadObj("objs/suzanne.obj");
+   // var objRaw = loadObj("objs/prism.obj");
+//var objRaw = loadObj("objs/apple.obj");
+//var objRaw = loadObj("objs/appleHighPoly.obj");
+var objRaw = loadObj("objs/duck.obj");
     objRaw.addCallback(function () {
         objModel = new createModel(gl, objRaw);
         var sum = 0;
@@ -751,7 +784,7 @@ function drawObj(model){
             
         }
         else{
-             console.log("drawing obj instead of sphere");
+          //   console.log("drawing obj instead of sphere");
             for(var i = 0; i < model.numGroups(); i++) {
                 //console.log("model VBO: " +model.VBO(i));
                     gl.bindBuffer(gl.ARRAY_BUFFER, model.VBO(i));
@@ -793,7 +826,7 @@ function drawObj(model){
 function drawWater(){
 
         gl.enable(gl.CULL_FACE);
-        for(var i=0 ;i<2; i++){
+        for(var i=0 ;i<2; i++){  
               
             gl.cullFace(i ? gl.BACK : gl.FRONT);
 
@@ -830,6 +863,16 @@ function drawWater(){
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
             gl.uniform1i(waterProg[i].samplerCausticUniform,3);
 
+            gl.activeTexture(gl.TEXTURE4);
+            gl.bindTexture(gl.TEXTURE_2D, objModel.TextureVBO(0));
+            gl.uniform1i(waterProg[i].samplerVBOUniform, 4);
+
+            gl.activeTexture(gl.TEXTURE5);
+            gl.bindTexture(gl.TEXTURE_2D, objModel.TextureIBO(0));
+            gl.uniform1i(waterProg[i].samplerIBOUniform, 5);
+
+            gl.uniform1i(waterProg[i].textureSizeVBOUniform, objModel.TextureSizeVBO(0));
+            gl.uniform1i(waterProg[i].textureSizeIBOUniform, objModel.TextureSizeIBO(0));
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
             gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -852,7 +895,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
         
        // console.log("water plane hit at "+ x.toFixed(2)+ "," + y.toFixed(2));
         
-        initFrameBuffer(water.TextureB, textureSize);
+        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -894,7 +937,7 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
 function drawCaustic(){
        
-        initFrameBuffer(water.TextureC, textureSize2);
+        initColorFrameBuffer(water.TextureC, textureSize2, textureSize2);
 
         gl.viewport(0, 0, textureSize2, textureSize2);
         gl.useProgram(causticProg);
@@ -925,7 +968,7 @@ function drawCaustic(){
 }
 
 function drawNormal(){
-        initFrameBuffer(water.TextureB, textureSize);
+        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -964,7 +1007,7 @@ function drawNormal(){
 
 function drawSimulation(){
 
-        initFrameBuffer(water.TextureB, textureSize);
+        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1004,7 +1047,7 @@ function drawSimulation(){
 
 function drawInteraction(){
 
-        initFrameBuffer(water.TextureB, textureSize);
+        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1046,23 +1089,55 @@ function drawInteraction(){
 
 }
 
-function initFrameBuffer(texture, size){   // rendering to a texture
+function drawDepth(){   //draw depth from light source
+    initDepthFrameBuffer(depthTexture, textureSize1, textureSize1);
+    gl.viewport(0, 0, textureSize1, textureSize1);
+        // depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
+        // depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
+        // depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
+}
+
+function initColorFrameBuffer(texture, width, height){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
 
-    framebuffer.width = size;
-    framebuffer.height = size;
+    framebuffer.width = width;
+    framebuffer.height = height;
 
-    if (size!= renderbuffer.width ||size!= renderbuffer.height) {
-      renderbuffer.width = size;
-      renderbuffer.height = size;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size, size);
+    if (width!= renderbuffer.width ||height!= renderbuffer.height) {
+      renderbuffer.width = width;
+      renderbuffer.height = height;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
     }
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
+      alert("Rendering to this texture is not supported");
+    }
+
+}
+
+function initDepthFrameBuffer(texture, width, height){   // rendering to a texture
+    framebuffer = framebuffer || gl.createFramebuffer();
+    renderbuffer = renderbuffer || gl.createRenderbuffer();
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+
+    framebuffer.width = width;
+    framebuffer.height = height;
+
+    if (width!= renderbuffer.width ||height!= renderbuffer.height) {
+      renderbuffer.width = width;
+      renderbuffer.height = height;
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+    }
+    
+    //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, texture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
       alert("Rendering to this texture is not supported");
     }
@@ -1168,7 +1243,7 @@ function initFrameBuffer(texture, size){   // rendering to a texture
       initBuffers(sphere, sphereObj);
       initBuffers(water, planeWater);
       initBuffers(quad, screenQuad);
-      sphere.center = vec3.create([0.0,0.5,0.0]);
+      sphere.center = vec3.create([0.0,-0.65,0.0]);
       sphere.oldcenter = vec3.create(sphere.center);
       sphere.radius = sphereObj.radius;
 
@@ -1179,11 +1254,13 @@ function initFrameBuffer(texture, size){   // rendering to a texture
        water.TextureA = gl.createTexture();
        water.TextureB = gl.createTexture();
        water.TextureC = gl.createTexture();
+       depthTexture = gl.createTexture();
 
       var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
-      initFloatTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
-      initFloatTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
-      initFloatTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is bigger
+      initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+      initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
+      initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, filter, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
 
       var successA = checkCanDrawToTexture(water.TextureA);
       var successB = checkCanDrawToTexture(water.TextureB);
@@ -1191,8 +1268,8 @@ function initFrameBuffer(texture, size){   // rendering to a texture
      /* if ((!successA || !successB) && OES_texture_half_float) {
         console.log("switch to half float");
         filter = OES_texture_half_float_linear ? gl.LINEAR : gl.NEAREST;
-        initFloatTexture(water.TextureA, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize );
-        initFloatTexture(water.TextureB, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize);
+        initCustomeTexture(water.TextureA, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize );
+        initCustomeTexture(water.TextureB, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize);
       }*/
 
        initSkyBoxTexture(); 

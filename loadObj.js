@@ -103,7 +103,6 @@
 
          return {
             numGroups: function(){
-                console.log("before return: " + vertexGroup.length);
                 return vertexGroup.length;
             },
             vertices: function(i){
@@ -150,22 +149,71 @@ var createModel = function(gl,objRaw) {
   var NBO = [];
   var TBO = [];
   var numIndices = [];
-
+  var TextureVBO = [];
+var TextureNBO = [];
+var TextureIBO = [];
+var TextureSizeVBO = [];
+var TextureSizeNBO = [];
+var TextureSizeIBO = [];
   for (var i = 0; i < numGroups; i++) {
     // Initialize buffer objects
     VBO[i] = gl.createBuffer();
     IBO[i] = gl.createBuffer();
     NBO[i] = gl.createBuffer();
     TBO[i] = gl.createBuffer();
+
+    TextureVBO[i] = gl.createTexture();
+    TextureNBO[i] = gl.createTexture();
+    TextureIBO[i] = gl.createTexture();
+
+    var texSize = Math.ceil(Math.sqrt( objRaw.vertices(i).length/3));
+    TextureSizeVBO[i] = texSize;
+    TextureSizeNBO[i] = texSize;
+    var vertices = [];
+    var normals = [];
+    for(var j=0; j<texSize*texSize*3; j++){  //fill in data
+        if(j<objRaw.vertices(i).length){
+            vertices.push(objRaw.vertices(i)[j]);
+            normals.push(objRaw.normals(i)[j]);
+        }
+        else{
+            vertices.push(1.0e6);
+            normals.push(1.0e6);
+        }
+    }
+     console.log("VBO texSize: " + texSize);
+    // console.log("now vertices length: " + vertices.length);
+    // console.log("original vertices length: " + objRaw.vertices(i).length);
+    var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
+
     // Add VBO, IBO, NBO and TBO
     gl.bindBuffer(gl.ARRAY_BUFFER, VBO[i]);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(objRaw.vertices(i)), gl.STATIC_DRAW);
-    
+    initCustomeTexture(TextureVBO[i], gl.RGB, filter, gl.FLOAT, texSize, texSize, new Float32Array(vertices));
+
+
     gl.bindBuffer(gl.ARRAY_BUFFER, NBO[i]);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(objRaw.normals(i)), gl.STATIC_DRAW);
+    initCustomeTexture(TextureNBO[i], gl.RGB, filter, gl.FLOAT, texSize, texSize, new Float32Array(normals));
+
+    texSize = Math.ceil(Math.sqrt( objRaw.indices(i).length/3));
+    TextureSizeIBO[i] = texSize;
+    var indices = [];
+    for(var j=0; j<texSize*texSize*3; j++){  //fill in data
+        if(j<objRaw.vertices(i).length){
+            indices.push(objRaw.vertices(i)[j]);
+        }
+        else{
+            indices.push(1.0e6);
+        }
+    }
+     console.log("IBO texSize: " + texSize);
+    // console.log("now indices length: " + indices.length);
+    // console.log("original indices length: " + objRaw.indices(i).length);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IBO[i]);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(objRaw.indices(i)), gl.STATIC_DRAW);
+    initCustomeTexture(TextureIBO[i], gl.RGB, filter, gl.FLOAT, texSize, texSize, new Float32Array(indices));
 
     gl.bindBuffer(gl.ARRAY_BUFFER, TBO[i]);
    // console.log("texture coord number: " + objRaw.texcoords(i).length);
@@ -196,6 +244,24 @@ var createModel = function(gl,objRaw) {
     },
     numIndices: function(i) {
       return numIndices[i];
-    }
+    },
+    TextureIBO: function(i){
+        return TextureIBO[i];
+    },
+    TextureVBO: function(i){
+        return TextureVBO[i];
+    },
+    TextureNBO: function(i){
+        return TextureNBO[i];
+    },
+    TextureSizeIBO: function(i){
+        return TextureSizeIBO[i];
+    },
+    TextureSizeVBO: function(i){
+        return TextureSizeVBO[i];
+    },
+    TextureSizeNBO: function(i){
+        return TextureSizeNBO[i];
+    },
   };
 };

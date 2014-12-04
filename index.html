@@ -89,7 +89,7 @@
         vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
       if (point.y < data.r) {
            vec4 caustic = texture2D(uSamplerCaustic, 0.65 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
-           scale += diffuse * caustic.r * 1.6 * caustic.g;
+           scale += diffuse * caustic.r * 2.0 * caustic.g;
         } else {
           vec2 t = intersectCube(point, refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, 2.0, 1.0));
           diffuse *= 1.0 / (1.0 + exp(-200.0 / (1.0 + 10.0 * (t.y - t.x)) * (point.y + refractedLight.y * t.y - 1.0 / 2.0)));
@@ -208,7 +208,7 @@
           color = getSphereColor(vVertexPosition, uSphereCenter, uSphereRadius);
        }
        else{
-          color = vec3(1.0, 1.0, 1.0);
+          color = vec3(1.0, 1.0, 0.0);
           color *= clamp(dot(lightDir, vVertexNormal), 0.20,1.0);
           if(vVertexPosition.y < data.r){
             vec3 refractedLight = refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
@@ -254,7 +254,7 @@
     uniform samplerCube uSamplerSky;   //top water reflects skybox
     uniform sampler2D uSamplerWater; 
     uniform sampler2D uSamplerCaustic;
-    uniform sampler2D uSamplerObj;    //packed obj infor
+     
     uniform vec3 uEyePosition;
     uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
     uniform float uSphereRadius;
@@ -266,6 +266,7 @@
     float poolHeight = 0.65;
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
+
     float intersectSphere(vec3 origin, vec3 ray, vec3 sphereCenter, float sphereRadius) {
       vec3 toSphere = origin - sphereCenter;
       float a = dot(ray, ray);
@@ -289,6 +290,33 @@
         float tFar = min(min(t2.x, t2.y), t2.z);
         return vec2(tNear, tFar);
     }
+
+    float intersectTri(vec3 origin, vec3 ray, vec3 a, vec3 b,  vec3 c) {
+      vec3 ab = b - a;
+      vec3 ac = c - a;
+      vec3 normal = normalize(cross(ab, ac));
+      vec3 oa = a - origin;
+      float t = dot(normal, oa) / dot(normal, ray);
+
+      if (t > 0.0) {
+        vec3 hit = origin + ray*t;
+        vec3 toHit = hit - a;
+        float dot00 = dot(ac,ac);
+        float dot01 = dot(ac, ab);
+        float dot02 = dot(ac, toHit);
+        float dot11 = dot(ab, ab);
+        float dot12 = dot(ab, toHit);
+        float divide = dot00 * dot11 - dot01 * dot01;
+        float u = (dot11 * dot02 - dot01 * dot12) / divide;
+        float v = (dot00 * dot12 - dot01 * dot02) / divide;
+        if (u >= 0.0 && v >= 0.0 && u + v <= 1.0){ 
+          return t;
+        }
+      }
+
+      return 1.0e6;
+    }
+
     vec3 getSphereColor(vec3 point,  vec3 sphereCenter, float sphereRadius) {
       vec3 color = vec3(0.5);
       color *= 1.0 - 0.9 / pow((1.0 + sphereRadius - abs(point.x)) / sphereRadius, 3.0);
@@ -338,11 +366,14 @@
         
         return wallColor * scale;
   }
+
+
     vec3 getRayColor(vec3 origin, vec3 ray, vec3 waterColor) {
         vec3 color;
         float q = intersectSphere(origin, ray, uSphereCenter, uSphereRadius);
         if (q < 1.0e6) {
           color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
+
         } else if (ray.y < 0.0) {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           color = getWallColor(origin + ray * t.y);
@@ -558,7 +589,7 @@
       float average = 0.25 * ( texture2D(uSamplerWater, vCoord - dx).r + texture2D(uSamplerWater, vCoord - dy).r +
         texture2D(uSamplerWater, vCoord + dx).r + texture2D(uSamplerWater, vCoord  + dy).r);
       data.a += (average - data.r) * 2.0;   //get speed
-      data.a *= 0.993;   //attenuate speed
+      data.a *= 0.995;   //attenuate speed
       data.r += data.a;   //update height
       gl_FragColor = data;
     }
@@ -578,7 +609,7 @@
       float dy = exp(-pow(t * 1.5, 6.0));
       float ymin = min(0.0, center.y - dy);
       float ymax = min(max(0.0, center.y + dy), ymin + 2.0 * dy);
-      return (ymax - ymin) * 0.1;
+      return (ymax - ymin) * 0.05;
     }
     void main() {
       vec4 data = texture2D(uSamplerWater, vCoord);
@@ -588,6 +619,47 @@
     }
 </script>
 
+ <script id="depth-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    void main (void){
+      gl_Position = uPMatrix * uMVMatrix * vec4(Vertex, 1.0);
+    }
+</script>
+
+
+<script id="depth-fs" type="x-shader/x-fragment">
+    precision highp float;
+   
+    vec4 pack (float depth)
+    {
+      const vec4 bitSh = vec4(256 * 256 * 256,
+                  256 * 256,
+                  256,
+                  1.0);
+      const vec4 bitMsk = vec4(0,
+                   1.0 / 256.0,
+                   1.0 / 256.0,
+                   1.0 / 256.0);
+      vec4 comp = fract(depth * bitSh);
+      comp -= comp.xxyz * bitMsk;
+      return comp;
+    }
+    
+
+    void main (void)
+    {
+      //gl_FragCoord:  window relative coordinate (x, y, z, 1/w) values for the fragment
+      //gl_FragCoord.z: depth
+      // Encode depth to RGBA texture
+      gl_FragColor = pack(gl_FragCoord.z);
+    }
+</script>
+    
+    
+  
 
 
 </head> 
