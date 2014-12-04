@@ -517,207 +517,208 @@ var objRaw = loadObj("objs/duck.obj");
 
 
 
-    function handleMouseDown(event) {
-        if( event.button == 2 ) {
-            mouseLeftDown = false;
-            mouseRightDown = true;
-        }
-        else {
-            mouseLeftDown = true;
-            mouseRightDown = false;
-            startInteraction(event.clientX, event.clientY);
-        }
-        lastMouseX = event.clientX;
-        lastMouseY = event.clientY;
-    }
-
-    function handleMouseUp(event) {
+function handleMouseDown(event) {
+    if( event.button == 2 ) {
         mouseLeftDown = false;
+        mouseRightDown = true;
+    }
+    else {
+        mouseLeftDown = true;
         mouseRightDown = false;
+        startInteraction(event.clientX, event.clientY);
+    }
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+}
+
+function handleMouseUp(event) {
+    mouseLeftDown = false;
+    mouseRightDown = false;
+}
+
+function handleMouseMove(event) {
+    if (!(mouseLeftDown || mouseRightDown)) {
+        return;
+    }
+    var newX = event.clientX;
+    var newY = event.clientY;
+
+    var deltaX = newX - lastMouseX;
+    var deltaY = newY - lastMouseY;
+    
+    if( mouseLeftDown ) {
+        duringInterction(newX, newY);
+        //radius += 0.01 * deltaY;
+        //radius = Math.min(Math.max(radius, 2.0), 10.0);
+    }
+    else {
+        azimuth += 0.01 * deltaX;
+        elevation += 0.01 * deltaY;
+        elevation = Math.min(Math.max(elevation, -Math.PI/2+0.001), Math.PI/2-0.001);
+    }
+    eye = sphericalToCartesian(radius, azimuth, elevation);
+    view = mat4.create();
+    mat4.lookAt(eye, center, up, view);
+
+    lastMouseX = newX;
+    lastMouseY = newY;
+}
+
+function handleMouseWheel(event){
+        //console.log("scroll");
+    var move = event.wheelDelta/240;
+    
+    if (move < 0 || pMatrix[14] > -2){
+      //  pMatrix = mat4.translate(pMatrix, [0, 0, event.wheelDelta/240]);
+    }
+    if(fov+move< 90 && fov+move> 25){
+        fov += move;
+    }
+    return false; // Don't scroll the page 
+}
+
+function startInteraction(x,y){
+    initTracer();
+    var ray = vec3.create();
+    ray = rayEyeToPixel(x,y);
+
+    var hit = vec3.create();
+    hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
+    if(hit!= null){   //sphere interaction
+        preHit = hit;
+        viewportNormal = rayEyeToPixel(gl.viewportWidth / 2.0, gl.viewportHeight / 2.0);
+        vec3.negate(viewportNormal);
+        mode = 1;
+        // console.log("--------------hit sphere at " + vec3.str(preHit));
+        // console.log("--------------viewportNormal="+vec3.str(viewportNormal));
+    }
+    else{   //mouse directioin interaction
+        var scale = -tracer.eye[1] / ray[1];
+        //move in the direction of ray, until gets the 'y=waterHeight' plane
+        var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
+        if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
+          drawHeight(point[0],point[2]);
+          mode = 0;
+        }
+    }
+}
+
+function duringInterction(x,y){
+
+    var ray = vec3.create();
+    ray = rayEyeToPixel(x,y);
+    if(mode == 0){   //direct mouse interaction
+        var scale = -tracer.eye[1] / ray[1];
+        var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
+   
+        if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
+          drawHeight(point[0],point[2]);
+        }
+    }
+    //var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
+    //if(hit!= null){   //sphere interaction, move sphere around
+    if(mode == 1){  //sphere interaction, move sphere around
+        var theEye = vec3.create(tracer.eye);
+        var preRay = vec3.create(preHit);
+        var nxtRay = vec3.create(ray);
+
+        vec3.subtract(preRay, theEye);   //preRay = preHit - eye
+        var t1 = vec3.dot(viewportNormal, preRay);  
+        var t2 = vec3.dot(viewportNormal, nxtRay);
+        var t = t1/t2;
+        vec3.scale(nxtRay, t);
+        // console.log("-----------------------");
+        // console.log("pre ray: " + vec3.str(preRay));
+        // console.log("nxt ray: " + vec3.str(nxtRay));
+
+        var nxtHit = vec3.create();
+        nxtHit = vec3.add(theEye, nxtRay);
+        var offsetHit = vec3.create(nxtHit);
+        vec3.subtract(offsetHit, preHit);   //offsetHit = nxtHit - preHit
+
+        // console.log("pre hit: " + vec3.str(preHit));
+        // console.log("nxt hit: " + vec3.str(nxtHit));
+        // console.log("hit offset: " + vec3.str(offsetHit));
+
+        if(vec3.length(offsetHit)>0.0){   //change location
+            vec3.add(sphere.center, offsetHit);
+            //make sure the sphere is in the boundary of pool
+            sphere.center[0] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[0]));
+            sphere.center[1] = Math.max(sphere.radius - 0.65 - 0.3, Math.min(10, sphere.center[1]));
+            sphere.center[2] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[2]));
+            //console.log("drag center: " + vec3.str(sphere.center));
+        }
+
+        preHit = nxtHit;
     }
 
-    function handleMouseMove(event) {
-        if (!(mouseLeftDown || mouseRightDown)) {
-            return;
-        }
-        var newX = event.clientX;
-        var newY = event.clientY;
+}
 
-        var deltaX = newX - lastMouseX;
-        var deltaY = newY - lastMouseY;
-        
-        if( mouseLeftDown ) {
-            duringInterction(newX, newY);
-            //radius += 0.01 * deltaY;
-            //radius = Math.min(Math.max(radius, 2.0), 10.0);
-        }
-        else {
-            azimuth += 0.01 * deltaX;
-            elevation += 0.01 * deltaY;
-            elevation = Math.min(Math.max(elevation, -Math.PI/2+0.001), Math.PI/2-0.001);
-        }
-        eye = sphericalToCartesian(radius, azimuth, elevation);
-        view = mat4.create();
-        mat4.lookAt(eye, center, up, view);
+function drawScene() {
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 
-        lastMouseX = newX;
-        lastMouseY = newY;
-    }
+    mat4.identity(mvMatrix);
+    mat4.multiply(mvMatrix,view);
 
-    function handleMouseWheel(event){
-            //console.log("scroll");
-        var move = event.wheelDelta/240;
-        
-        if (move < 0 || pMatrix[14] > -2){
-          //  pMatrix = mat4.translate(pMatrix, [0, 0, event.wheelDelta/240]);
-        }
-        if(fov+move< 90 && fov+move> 25){
-            fov += move;
-        }
-        return false; // Don't scroll the page 
-    }
-
-    function startInteraction(x,y){
-        initTracer();
-        var ray = vec3.create();
-        ray = rayEyeToPixel(x,y);
-
-        var hit = vec3.create();
-        hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
-        if(hit!= null){   //sphere interaction
-            preHit = hit;
-            viewportNormal = rayEyeToPixel(gl.viewportWidth / 2.0, gl.viewportHeight / 2.0);
-            vec3.negate(viewportNormal);
-            mode = 1;
-            // console.log("--------------hit sphere at " + vec3.str(preHit));
-            // console.log("--------------viewportNormal="+vec3.str(viewportNormal));
-        }
-        else{   //mouse directioin interaction
-            var scale = -tracer.eye[1] / ray[1];
-            //move in the direction of ray, until gets the 'y=waterHeight' plane
-            var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
-            if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-              drawHeight(point[0],point[2]);
-              mode = 0;
-            }
-        }
-    }
-
-    function duringInterction(x,y){
-
-        var ray = vec3.create();
-        ray = rayEyeToPixel(x,y);
-        if(mode == 0){   //direct mouse interaction
-            var scale = -tracer.eye[1] / ray[1];
-            var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
-       
-            if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {
-              drawHeight(point[0],point[2]);
-            }
-        }
-        //var hit = rayIntersectSphere(tracer.eye, ray, sphere.center, sphere.radius);
-        //if(hit!= null){   //sphere interaction, move sphere around
-        if(mode == 1){  //sphere interaction, move sphere around
-            var theEye = vec3.create(tracer.eye);
-            var preRay = vec3.create(preHit);
-            var nxtRay = vec3.create(ray);
-
-            vec3.subtract(preRay, theEye);   //preRay = preHit - eye
-            var t1 = vec3.dot(viewportNormal, preRay);  
-            var t2 = vec3.dot(viewportNormal, nxtRay);
-            var t = t1/t2;
-            vec3.scale(nxtRay, t);
-            // console.log("-----------------------");
-            // console.log("pre ray: " + vec3.str(preRay));
-            // console.log("nxt ray: " + vec3.str(nxtRay));
-  
-            var nxtHit = vec3.create();
-            nxtHit = vec3.add(theEye, nxtRay);
-            var offsetHit = vec3.create(nxtHit);
-            vec3.subtract(offsetHit, preHit);   //offsetHit = nxtHit - preHit
-
-            // console.log("pre hit: " + vec3.str(preHit));
-            // console.log("nxt hit: " + vec3.str(nxtHit));
-            // console.log("hit offset: " + vec3.str(offsetHit));
-
-            if(vec3.length(offsetHit)>0.0){   //change location
-                vec3.add(sphere.center, offsetHit);
-                //make sure the sphere is in the boundary of pool
-                sphere.center[0] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[0]));
-                sphere.center[1] = Math.max(sphere.radius - 0.65 - 0.3, Math.min(10, sphere.center[1]));
-                sphere.center[2] = Math.max(sphere.radius - 1.0, Math.min(1.0 - sphere.radius, sphere.center[2]));
-                //console.log("drag center: " + vec3.str(sphere.center));
-            }
-
-            preHit = nxtHit;
-        }
-
-    }
-
-    function drawScene() {
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-
-        mat4.identity(mvMatrix);
-        mat4.multiply(mvMatrix,view);
-
-        mat4.inverse(mvMatrix,nmlMatrix);
-        mat4.transpose(nmlMatrix,nmlMatrix);
+    mat4.inverse(mvMatrix,nmlMatrix);
+    mat4.transpose(nmlMatrix,nmlMatrix);
 
 
-        drawPool();
-        drawSkyBox();
-        //drawObj(sphere);
-        drawObj(objModel);
-        drawWater();
-    }
+    drawPool();
+    drawSkyBox();
+    //drawObj(sphere);
+    drawObj(objModel);
+    drawWater();
+    //drawDepth(); //is it right to draw depth here?
+}
 
-    function drawPool(){
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.useProgram(poolProg);
+function drawPool(){
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(poolProg);
 
-        gl.enable(gl.CULL_FACE);
-        gl.frontFace(gl.CCW);   //define front face
-        gl.cullFace(gl.FRONT);   //cull front facing faces
+    gl.enable(gl.CULL_FACE);
+    gl.frontFace(gl.CCW);   //define front face
+    gl.cullFace(gl.FRONT);   //cull front facing faces
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, pool.VBO);
-        gl.vertexAttribPointer(poolProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(poolProg.vertexPositionAttribute);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pool.VBO);
+    gl.vertexAttribPointer(poolProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(poolProg.vertexPositionAttribute);
 
-         gl.bindBuffer(gl.ARRAY_BUFFER, pool.NBO);
-        gl.vertexAttribPointer(poolProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(poolProg.vertexNormalAttribute);
+     gl.bindBuffer(gl.ARRAY_BUFFER, pool.NBO);
+    gl.vertexAttribPointer(poolProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(poolProg.vertexNormalAttribute);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, pool.TBO);
-        gl.vertexAttribPointer(poolProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(poolProg.textureCoordAttribute);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pool.TBO);
+    gl.vertexAttribPointer(poolProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(poolProg.textureCoordAttribute);
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
-        gl.uniform1i(poolProg.samplerTileUniform, 0);
-        
-        gl.activeTexture(gl.TEXTURE2);
-        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
-        gl.uniform1i(poolProg.samplerWaterUniform,2);
-        
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
-        gl.uniform1i(poolProg.samplerCausticUniform, 1);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, pool.Texture);
+    gl.uniform1i(poolProg.samplerTileUniform, 0);
+    
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+    gl.uniform1i(poolProg.samplerWaterUniform,2);
+    
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+    gl.uniform1i(poolProg.samplerCausticUniform, 1);
 
-        setMatrixUniforms(poolProg);
-        gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
-        gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
-        gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
+    setMatrixUniforms(poolProg);
+    gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
+    gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
+    gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
-        gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
+    gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
-        gl.disable(gl.CULL_FACE);
-        gl.disableVertexAttribArray(poolProg.vertexPositionAttribute);
-        gl.disableVertexAttribArray(poolProg.textureCoordAttribute);
-        gl.disableVertexAttribArray(poolProg.vertexNormalAttribute);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    gl.disable(gl.CULL_FACE);
+    gl.disableVertexAttribArray(poolProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(poolProg.textureCoordAttribute);
+    gl.disableVertexAttribArray(poolProg.vertexNormalAttribute);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 }
 
 function drawSkyBox() {
@@ -1092,9 +1093,18 @@ function drawInteraction(){
 function drawDepth(){   //draw depth from light source
     initDepthFrameBuffer(depthTexture, textureSize1, textureSize1);
     gl.viewport(0, 0, textureSize1, textureSize1);
-        // depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
-        // depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
-        // depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
+    //depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
+    //depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
+    //depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
+    gl.useProgram(depthProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+    gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
+        
+    setMatrixUniforms(depthProg);
+            
+    
+    
 }
 
 function initColorFrameBuffer(texture, width, height){   // rendering to a texture
@@ -1115,7 +1125,7 @@ function initColorFrameBuffer(texture, width, height){   // rendering to a textu
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Rendering to this texture is not supported");
+      alert("Rendering to colorFrame texture is not supported");
     }
 
 }
@@ -1139,149 +1149,150 @@ function initDepthFrameBuffer(texture, width, height){   // rendering to a textu
     //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, texture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Rendering to this texture is not supported");
+      alert("Rendering to depth texture is not supported");
     }
 
 }
 
-    function registerAsyncObj( gl, asyncObj ){
-        if( !gl.asyncObjArray ){
-            gl.asyncObjArray = [];
-        }
-        gl.asyncObjArray[gl.asyncObjArray.length] = asyncObj;
+function registerAsyncObj( gl, asyncObj ){
+    if( !gl.asyncObjArray ){
+        gl.asyncObjArray = [];
     }
+    gl.asyncObjArray[gl.asyncObjArray.length] = asyncObj;
+}
 
-    function check(){
-        var i;
-        var n;
-        n = gl.asyncObjArray.length;
-        //check if resources are ready, one by one
-        for( i = 0; i < gl.asyncObjArray.length; ++i ){
-            if( gl.asyncObjArray[i].isReady() ){
-                //Run object's registered callback functions
-                gl.asyncObjArray[i].executeCallBackFunc();
-                n -= 1;
-            }
-        }
-        if( n === 0 ){
-           tick();
-        }
-        else{
-            setTimeout( check, 500, gl );
+function check(){
+    var i;
+    var n;
+    n = gl.asyncObjArray.length;
+    //check if resources are ready, one by one
+    for( i = 0; i < gl.asyncObjArray.length; ++i ){
+        if( gl.asyncObjArray[i].isReady() ){
+            //Run object's registered callback functions
+            gl.asyncObjArray[i].executeCallBackFunc();
+            n -= 1;
         }
     }
+    if( n === 0 ){
+       tick();
+    }
+    else{
+        setTimeout( check, 500, gl );
+    }
+}
 
-    function tick() {
-        var now = Date.now() / 1000;  
-        var elapsedTime = now - then;
-        then = now;
+function tick() {
+    var now = Date.now() / 1000;  
+    var elapsedTime = now - then;
+    then = now;
 
-        // update the frame history.
-        totalTimeForFrames += elapsedTime - (frameTimeHistory[frameTimeIndex] || 0);
-        frameTimeHistory[frameTimeIndex] = elapsedTime;
-        frameTimeIndex = (frameTimeIndex + 1) % numFramesToAverage;
+    // update the frame history.
+    totalTimeForFrames += elapsedTime - (frameTimeHistory[frameTimeIndex] || 0);
+    frameTimeHistory[frameTimeIndex] = elapsedTime;
+    frameTimeIndex = (frameTimeIndex + 1) % numFramesToAverage;
 
-        // compute fps
-        var averageElapsedTime = totalTimeForFrames / numFramesToAverage;
-        var fps = 1 / averageElapsedTime;
-        document.getElementById("fps").innerText = fps.toFixed(0); 
-        //$('#fps').html(fps.toFixed(0));
-    
+    // compute fps
+    var averageElapsedTime = totalTimeForFrames / numFramesToAverage;
+    var fps = 1 / averageElapsedTime;
+    document.getElementById("fps").innerText = fps.toFixed(0); 
+    //$('#fps').html(fps.toFixed(0));
 
-        requestAnimFrame(tick);
-        drawScene();
+
+    requestAnimFrame(tick);
+    drawScene();
+ 
+    animate();
+}
+
+
+function animate() {
+    var timeNow = new Date().getTime();
+    if (lastTime != 0) {
+        var elapsed = timeNow - lastTime;
+      //  xRot += (90 * elapsed) / 1000.0;
+       // yRot += (90 * elapsed) / 1000.0;
+       //zRot += (90 * elapsed) / 1000.0;
+    }
+    lastTime = timeNow;
+
+    drawNormal();
+    drawSimulation();
+    drawSimulation();
+    drawInteraction();
+    // console.log("old center: "+ vec3.str(sphere.oldcenter));
+   // console.log("new center: "+ vec3.str(sphere.center));
+    sphere.oldcenter = vec3.create(sphere.center);
+    drawCaustic();
      
-        animate();
-    }
+
+}
 
 
-    function animate() {
-        var timeNow = new Date().getTime();
-        if (lastTime != 0) {
-            var elapsed = timeNow - lastTime;
-          //  xRot += (90 * elapsed) / 1000.0;
-           // yRot += (90 * elapsed) / 1000.0;
-           //zRot += (90 * elapsed) / 1000.0;
-        }
-        lastTime = timeNow;
+function webGLStart() {
+    var canvas = document.getElementById("the-canvas");
+    initGL(canvas);
 
-        drawNormal();
-        drawSimulation();
-        drawSimulation();
-        drawInteraction();
-        // console.log("old center: "+ vec3.str(sphere.oldcenter));
-       // console.log("new center: "+ vec3.str(sphere.center));
-        sphere.oldcenter = vec3.create(sphere.center);
-        drawCaustic();
-    
-    }
+    canvas.onmousedown = handleMouseDown;
+    canvas.oncontextmenu = function(ev) {return false;};
+    canvas.onmousewheel   = handleMouseWheel;
+    document.onmouseup = handleMouseUp;
+    document.onmousemove = handleMouseMove;
+
+    //enable necessry extensions.
+    OES_texture_float_linear = gl.getExtension("OES_texture_float_linear");
+    OES_texture_float = gl.getExtension("OES_texture_float");
+    OES_texture_half_float  = gl.getExtension("OES_texture_half_float");
+    OES_texture_half_float_linear = gl.getExtension("OES_texture_half_float_linear");
+    OES_standard_derivatives = gl.getExtension("OES_standard_derivatives");
+    console.log(OES_standard_derivatives);
 
 
-    function webGLStart() {
-        var canvas = document.getElementById("the-canvas");
-        initGL(canvas);
+    initShaders();
+  //  initBuffers();
+  initBuffers(sky, cubeSky);
+  initBuffers(pool, cubePool);
+  initBuffers(sphere, sphereObj);
+  initBuffers(water, planeWater);
+  initBuffers(quad, screenQuad);
+  sphere.center = vec3.create([0.0,-0.65,0.0]);
+  sphere.oldcenter = vec3.create(sphere.center);
+  sphere.radius = sphereObj.radius;
 
-        canvas.onmousedown = handleMouseDown;
-        canvas.oncontextmenu = function(ev) {return false;};
-        canvas.onmousewheel   = handleMouseWheel;
-        document.onmouseup = handleMouseUp;
-        document.onmousemove = handleMouseMove;
+   // initTexture();
+   pool.Texture = gl.createTexture();
+   initTexture(pool.Texture, "tile/tile.png");
+   //initTexture(pool.Texture, "tile/tile2.jpg");
+   water.TextureA = gl.createTexture();
+   water.TextureB = gl.createTexture();
+   water.TextureC = gl.createTexture();
+   depthTexture = gl.createTexture();
 
-        //enable necessry extensions.
-        OES_texture_float_linear = gl.getExtension("OES_texture_float_linear");
-        OES_texture_float = gl.getExtension("OES_texture_float");
-        OES_texture_half_float  = gl.getExtension("OES_texture_half_float");
-        OES_texture_half_float_linear = gl.getExtension("OES_texture_half_float_linear");
-        OES_standard_derivatives = gl.getExtension("OES_standard_derivatives");
-        console.log(OES_standard_derivatives);
+  var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
+  initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+  initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
+  initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
+  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, filter, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
 
+  var successA = checkCanDrawToTexture(water.TextureA);
+  var successB = checkCanDrawToTexture(water.TextureB);
 
-        initShaders();
-      //  initBuffers();
-      initBuffers(sky, cubeSky);
-      initBuffers(pool, cubePool);
-      initBuffers(sphere, sphereObj);
-      initBuffers(water, planeWater);
-      initBuffers(quad, screenQuad);
-      sphere.center = vec3.create([0.0,-0.65,0.0]);
-      sphere.oldcenter = vec3.create(sphere.center);
-      sphere.radius = sphereObj.radius;
+ /* if ((!successA || !successB) && OES_texture_half_float) {
+    console.log("switch to half float");
+    filter = OES_texture_half_float_linear ? gl.LINEAR : gl.NEAREST;
+    initCustomeTexture(water.TextureA, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize );
+    initCustomeTexture(water.TextureB, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize);
+  }*/
 
-       // initTexture();
-       pool.Texture = gl.createTexture();
-       initTexture(pool.Texture, "tile/tile.png");
-       //initTexture(pool.Texture, "tile/tile2.jpg");
-       water.TextureA = gl.createTexture();
-       water.TextureB = gl.createTexture();
-       water.TextureC = gl.createTexture();
-       depthTexture = gl.createTexture();
+   initSkyBoxTexture(); 
 
-      var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
-      initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
-      initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
-      initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
-      initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, filter, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
+    initObjs();
 
-      var successA = checkCanDrawToTexture(water.TextureA);
-      var successB = checkCanDrawToTexture(water.TextureB);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.enable(gl.DEPTH_TEST);
 
-     /* if ((!successA || !successB) && OES_texture_half_float) {
-        console.log("switch to half float");
-        filter = OES_texture_half_float_linear ? gl.LINEAR : gl.NEAREST;
-        initCustomeTexture(water.TextureA, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize );
-        initCustomeTexture(water.TextureB, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize);
-      }*/
-
-       initSkyBoxTexture(); 
-
-        initObjs();
+    check();
+    //tick();
    
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.enable(gl.DEPTH_TEST);
-
-        check();
-        //tick();
-       
-    }
+}
 
 

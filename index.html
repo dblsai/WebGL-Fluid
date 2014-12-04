@@ -625,7 +625,7 @@
     uniform mat4 uPMatrix;
 
     void main (void){
-      gl_Position = uPMatrix * uMVMatrix * vec4(Vertex, 1.0);
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
 </script>
 
@@ -654,7 +654,7 @@
       //gl_FragCoord:  window relative coordinate (x, y, z, 1/w) values for the fragment
       //gl_FragCoord.z: depth
       // Encode depth to RGBA texture
-      gl_FragColor = pack(gl_FragCoord.z);
+      gl_FragColor = vec4(1.0);// pack(gl_FragCoord.z);
     }
 </script>
     
