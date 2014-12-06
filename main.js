@@ -90,8 +90,9 @@
     var colorTexture;
     var lightInvDir = vec3.normalize(vec3.create([-0.5,-1.2,-0.3]));
  
-
-
+    //user input
+    var u_CausticOnLocation;
+    var isSphere;
 
     function sphericalToCartesian( r, a, e ) {
         var x = r * Math.cos(e) * Math.cos(a);
@@ -149,7 +150,15 @@
         return shader;
     }
 
-
+    window.onload = function() {
+        var gui = new dat.GUI();
+        gui.add(parameters, 'Caustic');
+        gui.add(parameters, 'Object', [ 'sphere', 'mesh']);
+    };
+    var parameters = new function(){
+        this.Caustic = true;
+        this.Object = "sphere";
+    }
     function initShaders() {
      //-----------------------pool------------------------------
         poolProg = gl.createProgram();
@@ -175,6 +184,7 @@
         poolProg.samplerDepthUniform = gl.getUniformLocation(poolProg, "uSamplerDepth");
         poolProg.sphereRadiusUniform = gl.getUniformLocation(poolProg, "uSphereRadius");
         poolProg.sphereCenterUniform = gl.getUniformLocation(poolProg, "uSphereCenter");
+        poolProg.causticOnUniform = gl.getUniformLocation(poolProg, "uCausticOn");
 
 
 
@@ -202,6 +212,7 @@
         objProg.samplerWaterUniform = gl.getUniformLocation(objProg, "uSamplerWater");
         objProg.samplerCausticUniform = gl.getUniformLocation(objProg, "uSamplerCaustic");
         objProg.isSphereUniform = gl.getUniformLocation(objProg, "uIsSphere");
+        objProg.causticOnUniform = gl.getUniformLocation(objProg, "uCausticOn");
         //objProg.RadiusUniform = gl.getUniformLocation(objProg, "uRadius");
        // objProg.diffuseColorUniform = gl.getUniformLocation(objProg, "uDiffuseColor");
        // objProg.samplerTileUniform = gl.getUniformLocation(objProg, "uSampler");
@@ -255,6 +266,7 @@
             waterProg[i].samplerIBOUniform = gl.getUniformLocation(waterProg[i], "uSamplerIBO");
             waterProg[i].textureSizeVBOUniform = gl.getUniformLocation(waterProg[i], "uTextureSizeVBO");
             waterProg[i].textureSizeIBOUniform = gl.getUniformLocation(waterProg[i],"uTextureSizeIBO");
+            waterProg[i].causticOnUniform = gl.getUniformLocation(waterProg[i], "uCausticOn");
         }
 
         //-----------------------height------------------------------------------------
@@ -731,14 +743,20 @@ function drawScene() {
 
     mat4.inverse(mvMatrix,nmlMatrix);
     mat4.transpose(nmlMatrix,nmlMatrix);
+    
+    if(parameters.Caustic == true) u_CausticOnLocation = 1.0;
+    else u_CausticOnLocation = 0.0;
+    
+    if(parameters.Object == "sphere") isSphere = 1;
+    else isSphere = 0;
 
-
+    drawDepth();
     drawPool();
     drawSkyBox();
-    //drawObj(sphere);
-    drawObj(objModel);
+    if(isSphere) drawObj(sphere);
+    else drawObj(objModel);
     drawWater();
-    drawDepth(); 
+     
     drawNormal();
     drawSimulation();
     drawSimulation();
@@ -789,6 +807,7 @@ function drawPool(){
     gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
     gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
     gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
+    gl.uniform1f(poolProg.causticOnUniform, u_CausticOnLocation);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
     gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -860,6 +879,8 @@ function drawObj(model){
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
             gl.uniform1i(objProg.samplerCausticUniform,3);
             
+            gl.uniform1f(objProg.causticOnUniform, u_CausticOnLocation);
+            
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.IBO);
             gl.drawElements(gl.TRIANGLES, model.IBO.numItems, gl.UNSIGNED_SHORT, 0);
             
@@ -890,6 +911,8 @@ function drawObj(model){
                     gl.activeTexture(gl.TEXTURE3);
                     gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
                     gl.uniform1i(objProg.samplerCausticUniform,3);
+                    
+                    gl.uniform1f(objProg.causticOnUniform, u_CausticOnLocation);
 
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,model.IBO(i));
                     gl.drawElements(gl.TRIANGLES, model.numIndices(i), gl.UNSIGNED_SHORT, 0);
@@ -954,6 +977,8 @@ function drawWater(){
 
             gl.uniform1i(waterProg[i].textureSizeVBOUniform, objModel.TextureSizeVBO(0));
             gl.uniform1i(waterProg[i].textureSizeIBOUniform, objModel.TextureSizeIBO(0));
+            
+            gl.uniform1f(waterProg[i].causticOnUniform, u_CausticOnLocation);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
             gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1178,7 +1203,7 @@ function drawDepth(){   //draw depth from light source
     gl.enable(gl.DEPTH_TEST);
     gl.useProgram(depthProg);
    // gl.colorMask(false, false, false, false);  //disable writing to color
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
     gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
         
@@ -1188,11 +1213,11 @@ function drawDepth(){   //draw depth from light source
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix,lightView);
     gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
-    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix);    //model view matrix is from light
-    //gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix);
+    //gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix);    //model view matrix is from light
+    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix);
 
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.IBO(0).numItems, gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, depthModel.IBO);
+    gl.drawElements(gl.TRIANGLES, depthModel.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
      //-------------- after rendering---------------------------------------------------
     gl.disableVertexAttribArray(depthProg.vertexPositionAttribute);
@@ -1355,6 +1380,7 @@ function webGLStart() {
   sphere.oldcenter = vec3.create(sphere.center);
   sphere.radius = sphereObj.radius;
 
+   initObjs();
    // initTexture();
    pool.Texture = gl.createTexture();
    initTexture(pool.Texture, "tile/tile.png");
@@ -1385,7 +1411,7 @@ function webGLStart() {
 
    initSkyBoxTexture(); 
 
-    initObjs();
+    
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
