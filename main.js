@@ -24,6 +24,7 @@
     var objProg;
     var objectProg;
     var depthProg;
+    var windProg;
     
     //rendering
     var framebuffer;
@@ -59,10 +60,8 @@
     var then = Date.now() / 1000;
 
     // animating 
-    var lastTime = 0;
-    var xRot = 0;
-    var yRot = 0;
-    var zRot = 0;
+    var accumTime = 0;
+    var isWindy = true;
 
     //mouse interaction
     var time = 0;
@@ -90,6 +89,37 @@
     var colorTexture;
     var lightInvDir = vec3.normalize(vec3.create([-0.5,-1.2,-0.3]));
  
+
+    var perm  = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+                140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+                247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+                57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+                74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
+                60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+                65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169,
+                200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
+                52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212,
+                207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
+                119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
+                129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
+                218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241,
+                81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
+                184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93,
+                222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180 ];
+
+    // var grad = [  [1,1,0],    [-1,1,0],    [1,-1,0],    [-1,-1,0],
+    //               [1,0,1],    [-1,0,1],    [1,0,-1],    [-1,0,-1],
+    //               [0,1,1],    [0,-1,1],    [0,1,-1],    [0,-1,-1],
+    //               [1,1,0],    [0,-1,1],    [-1,1,0],    [0,-1,-1] ];
+
+    var grad = [  1,1,0,    -1,1,0,    1,-1,0,    -1,-1,0,
+                  1,0,1,    -1,0,1,    1,0,-1,    -1,0,-1,
+                  0,1,1,    0,-1,1,    0,1,-1,    0,-1,-1,
+                  1,1,0,    0,-1,1,    -1,1,0,    0,-1,-1 ];
+
+    var permTexture;
+    var gradTexture;
+
 
 
 
@@ -310,7 +340,6 @@
         gl.attachShader(simulateProg, getShader(gl, "interact-simulate-fs") );
         gl.linkProgram(simulateProg);
 
-
         if (!gl.getProgramParameter(simulateProg, gl.LINK_STATUS)) {
             alert("Could not initialize simulate shader.");
         }
@@ -325,7 +354,6 @@
         gl.attachShader(objectProg, getShader(gl, "interact-vs") );
         gl.attachShader(objectProg, getShader(gl, "interact-sphere-fs") );
         gl.linkProgram(objectProg);
-
 
         if (!gl.getProgramParameter(objectProg, gl.LINK_STATUS)) {
             alert("Could not initialize interact shader.");
@@ -353,6 +381,27 @@
         depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
         depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
         depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
+
+
+        //---------------------perlin noise for wind------------------------------------------------
+        windProg = gl.createProgram();
+        gl.attachShader(windProg, getShader(gl, "perlin-vs") );
+        gl.attachShader(windProg, getShader(gl, "perlin-fs") );
+        gl.linkProgram(windProg);
+
+        if (!gl.getProgramParameter(windProg, gl.LINK_STATUS)) {
+            alert("Could not initialize wind shader.");
+        }
+        gl.useProgram(windProg);
+
+        windProg.vertexPositionAttribute = gl.getAttribLocation(windProg, "aVertexPosition");
+        //windProg.pMatrixUniform = gl.getUniformLocation(windProg, "uPMatrix");
+        //windProg.mvMatrixUniform = gl.getUniformLocation(windProg, "uMVMatrix");
+        windProg.samplerWaterUniform = gl.getUniformLocation(windProg, "uSamplerWater");
+        windProg.samplerPermUniform = gl.getUniformLocation(windProg, "uSamplerPerm");
+        windProg.samplerGradUniform = gl.getUniformLocation(windProg, "uSamplerGrad");
+        windProg.timeUniform = gl.getUniformLocation(windProg, "uTime");
+
 
     }
 
@@ -388,15 +437,17 @@
         texture.image.src = url;
     }
 
-    function initCustomeTexture( texture, format, filter, type, width, height, data){ 
+    function initCustomeTexture( texture, format, filter, type, width, height, data, wrapS, wrapT){ 
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
 
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter );
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter );
 
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+        wrapS = wrapS ||gl.CLAMP_TO_EDGE;
+        wrapT = wrapT ||gl.CLAMP_TO_EDGE;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT );
 
         data = data||null;
         if(type == gl.FLOAT){
@@ -747,6 +798,9 @@ function drawScene() {
    // console.log("new center: "+ vec3.str(sphere.center));
     sphere.oldcenter = vec3.create(sphere.center);
     drawCaustic();
+    if(isWindy){
+       drawWind();
+    }
 }
 
 function drawPool(){
@@ -1207,6 +1261,58 @@ function drawDepth(){   //draw depth from light source
     
 }
 
+function drawWind(){
+
+        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
+        //resize viewport
+        gl.viewport(0, 0, textureSize, textureSize);
+
+        //-------------------start rendering to texture--------------------------------------
+        gl.useProgram(windProg);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, water.VBO);
+        gl.vertexAttribPointer(windProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(windProg.vertexPositionAttribute);
+
+      //  setMatrixUniforms((windProg);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
+        gl.uniform1i(windProg.samplerWaterUniform,0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, permTexture);
+        gl.uniform1i(windProg.samplerPermUniform,1);
+
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, gradTexture);
+        gl.uniform1i(windProg.samplerGradUniform,2);
+
+        accumTime += 0.08;
+        //console.log("time: " + accumTime);
+        gl.uniform1f(windProg.timeUniform, accumTime);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
+        gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+     
+
+        //-------------- after rendering---------------------------------------------------
+        gl.disableVertexAttribArray(windProg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // reset viewport
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+        //swap TextureA  & TextureB 
+        var tmp = water.TextureA;
+        water.TextureA = water.TextureB;
+        water.TextureB = tmp;
+
+}
+
 function initColorFrameBuffer(texture, width, height){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
@@ -1256,6 +1362,8 @@ function initDepthFrameBuffer(coltexture, deptexture, width, height){   // rende
 
 }
 
+
+
 function registerAsyncObj( gl, asyncObj ){
     if( !gl.asyncObjArray ){
         gl.asyncObjArray = [];
@@ -1299,25 +1407,13 @@ function tick() {
     document.getElementById("fps").innerText = fps.toFixed(0); 
     //$('#fps').html(fps.toFixed(0));
 
-
     requestAnimFrame(tick);
     drawScene();
-   // animate();
+
 }
 
 
-function animate() {
-    var timeNow = new Date().getTime();
-    if (lastTime != 0) {
-        var elapsed = timeNow - lastTime;
-      //  xRot += (90 * elapsed) / 1000.0;
-       // yRot += (90 * elapsed) / 1000.0;
-       //zRot += (90 * elapsed) / 1000.0;
-    }
-    lastTime = timeNow;
 
-    
-}
 
 
 function webGLStart() {
@@ -1364,6 +1460,8 @@ function webGLStart() {
    water.TextureC = gl.createTexture();
    depthTexture = gl.createTexture();
    colorTexture = gl.createTexture();
+   permTexture = gl.createTexture();
+   gradTexture = gl.createTexture();
 
   var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
@@ -1372,7 +1470,6 @@ function webGLStart() {
   initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
   //initCustomeTexture(depthTexture, gl.RGBA, filter, gl.FLOAT, textureSize1, textureSize1); 
   initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
-
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);
 
@@ -1382,6 +1479,27 @@ function webGLStart() {
     initCustomeTexture(water.TextureA, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize );
     initCustomeTexture(water.TextureB, gl.RGB, filter, gl.HALF_FLOAT_OES, textureSize, textureSize);
   }*/
+
+//  var pixels = [];
+//  for(var i = 0; i<256; i++)
+//     for(var j = 0; j<256; j++) {
+//       var offset = (i*256+j)*4;
+//       var value = perm[(j+perm[i]) & 0xFF];
+//       pixels[offset] = grad[value & 0x0F][0] * 64 + 64;   // Gradient x
+//       pixels[offset+1] = grad[value & 0x0F][1] * 64 + 64; // Gradient y
+//       pixels[offset+2] = grad[value & 0x0F][2] * 64 + 64; // Gradient z
+//       pixels[offset+3] = value;                     // Permuted index
+//     }
+//    // console.log("pixels: "+pixels);
+// var permArray = new Uint8Array( pixels );
+// initCustomeTexture( permTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, 256, 256, permArray);
+
+var permArray = new Uint8Array( perm );
+var gradArray = new Uint8Array( grad );
+initCustomeTexture( permTexture, gl.ALPHA, gl.NEAREST, gl.UNSIGNED_BYTE, 256, 1, permArray, gl.REPEAT, gl.CLAMP_TO_EDGE);
+initCustomeTexture( gradTexture, gl.RGB, gl.NEAREST, gl.UNSIGNED_BYTE, 16, 1, gradArray, gl.REPEAT, gl.CLAMP_TO_EDGE );
+
+ 
 
    initSkyBoxTexture(); 
 
