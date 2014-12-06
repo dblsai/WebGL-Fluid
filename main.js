@@ -93,6 +93,7 @@
     //user input
     var u_CausticOnLocation;
     var isSphere;
+    var sphereRadius;
 
     function sphericalToCartesian( r, a, e ) {
         var x = r * Math.cos(e) * Math.cos(a);
@@ -154,10 +155,12 @@
         var gui = new dat.GUI();
         gui.add(parameters, 'Caustic');
         gui.add(parameters, 'Object', [ 'sphere', 'mesh']);
+        gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
     };
     var parameters = new function(){
         this.Caustic = true;
         this.Object = "sphere";
+        this.Sphere_Radius = 0.25;        
     }
     function initShaders() {
      //-----------------------pool------------------------------
@@ -749,7 +752,13 @@ function drawScene() {
     
     if(parameters.Object == "sphere") isSphere = 1;
     else isSphere = 0;
+    sphereRadius = parameters.Sphere_Radius;
+    sphereObj = createSphere(sphereRadius, 12, 12);
+    initBuffers(sphere, sphereObj);
+    sphere.radius = sphereObj.radius;
 
+   initObjs();
+    
     drawDepth();
     drawPool();
     drawSkyBox();
@@ -1371,6 +1380,8 @@ function webGLStart() {
     initShaders();
 
   //  initBuffers();
+  var sphereObj = createSphere(sphereRadius, 12, 12);
+  
   initBuffers(sky, cubeSky);
   initBuffers(pool, cubePool);
   initBuffers(sphere, sphereObj);

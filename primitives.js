@@ -282,7 +282,7 @@ var createSphere = function(radius, slices, stacks) {
    return s;
 }
 
-var sphereObj = createSphere(0.25, 12, 12);
+
 
 
 
