@@ -41,7 +41,6 @@
     var mvMatrixStack = [];
     var pMatrix = mat4.create();
     var nmlMatrix = mat4.create();
-    var lightMatrix = mat4.create();   //matrix for light
     var eyePos;
     var radius = 4.0;
     var azimuth = 0.5*Math.PI;
@@ -89,6 +88,8 @@
     var depthTexture;
     var colorTexture;
     var lightInvDir = vec3.normalize(vec3.create([0.5,1.0,0.3]));
+    var lightMatrix = mat4.create();   //model view matrix for light
+    var lightProj = mat4.create();   //projection matrix for light
 
     var perm  = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
                 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
@@ -223,6 +224,7 @@
         poolProg.mvMatrixUniform = gl.getUniformLocation(poolProg, "uMVMatrix");
         poolProg.nmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
         poolProg.lightMatrixUniform = gl.getUniformLocation(poolProg, "uLightMatrix");
+        poolProg.lightProjUniform = gl.getUniformLocation(poolProg, "uLightProj");
         poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
         poolProg.samplerWaterUniform = gl.getUniformLocation(poolProg, "uSamplerWater");
         poolProg.samplerCausticUniform = gl.getUniformLocation(poolProg, "uSamplerCaustic");
@@ -959,6 +961,7 @@ function drawPool(){
     setMatrixUniforms(poolProg);
     gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
     gl.uniformMatrix4fv(poolProg.lightMatrixUniform, false, lightMatrix);
+     gl.uniformMatrix4fv(poolProg.lightProjUniform, false, lightProj);
     gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
     gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
     gl.uniform1f(poolProg.causticOnUniform, u_CausticOnLocation);
@@ -1119,6 +1122,7 @@ function drawWater(){
             
             gl.activeTexture(gl.TEXTURE3);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+            gl.uniform1i(waterProg[i].samplerCausticUniform,3);
             
             gl.uniform1f(waterProg[i].causticOnUniform, u_CausticOnLocation);
 
@@ -1344,7 +1348,7 @@ function drawDepth(){   //draw depth from light source
     gl.useProgram(depthProg);
 
     var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
+    lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
 
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix, lightView);
