@@ -7,14 +7,15 @@
 
 <script type="text/javascript" src="glMatrix-0.9.5.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
-<script type="text/javascript" src="main.js"></script>
+<script type="text/javascript" src="o3djs/base.js"></script>
 <script type="text/javascript" src ="tracer.js"></script>
 <script type="text/javascript" src ="primitives.js"></script>
 <script type="text/javascript" src ="loadObj.js"></script>
 <script type="text/javascript" src="threejs/three.js"></script>
 <script type="text/javascript" src="threejs/OBJLoader.js"></script>
 <script type="text/javascript" src="dat.gui.min.js"></script>
-<script type="text/javascript" src="o3djs/base.js"></script>
+<script type="text/javascript" src="main.js"></script>
+
 
 
 <script id="pool-vs" type="x-shader/x-vertex">
@@ -646,11 +647,11 @@
     const float PI = 3.141592653589793;
     uniform sampler2D uSamplerWater;
     uniform vec2 uCenter;    //[-1,1]
-   // uniform float radius;
-   // uniform float strength;
+    uniform float uRadius;
+    uniform float uStrength;
  
-   float radius = 0.03;   //0.03
-   float strength = 0.01;   //0.01
+   // float radius = 0.03;   //0.03
+   // float strength = 0.01;   //0.01
     varying vec2 vCoord;
     float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
@@ -659,17 +660,10 @@
       vec4 data = texture2D(uSamplerWater, vCoord);
       vec2 dragCoord = uCenter * 0.5 + 0.5;     //[0,1]
      float dist = length(dragCoord - vCoord);    //[0,1]
-      //data.x += dist;
-      float drag = max(0.0, 1.0 - dist/ radius);  
+      float drag = max(0.0, 1.0 - dist/ uRadius);  
      drag = 0.5 - cos(drag * PI)*0.5;
-     //drag = cos(drag * PI);
-      //data.x += drag * strength;   //add height
-      //data.x+= dist/1000.0;
-// drag = clamp(rand(vCoord), 0.0, 0.2);
-// drag = 0.5 - cos(drag * PI)*0.5;
-     data.x += drag* strength;
-//data.x += uCenter.x /10.0;
-//data.x -= uCenter.y /10.0;
+     data.x += drag* uStrength;
+
       gl_FragColor = data;
     }
 </script>
@@ -895,7 +889,7 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     void main(void) {
-      gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
         
 </script>
@@ -904,7 +898,7 @@
     precision highp float;
         
     void main(void) {
-         gl_FragColor = vec4(0.4, 0.01, 0.08, 0.5);
+         gl_FragColor = vec4(0.4, 0.01, 0.08, 0.6);
     }
 </script>
 
