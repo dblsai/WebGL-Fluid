@@ -30,7 +30,6 @@
     varying vec3 vVertexNormal;
     varying vec3 vDepthPosition;
     const mat4 ScaleMatrix = mat4(0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.5, 0.5, 0.5, 1.0);
-
     void main(void) {
        vVertexPosition = aVertexPosition;
        vVertexPosition.y -= 0.3;
@@ -68,7 +67,6 @@
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
     
-
     vec2 intersectCube(vec3 origin, vec3 ray, vec3 cubeMin, vec3 cubeMax) {
         vec3 tMin = (cubeMin - origin) / ray;
         vec3 tMax = (cubeMax - origin) / ray;
@@ -112,11 +110,9 @@
         
         return wallColor * scale ;
   }
-
   float linearizeDepth( float exp_depth, float near, float far ){
       return ( 2.0 * near ) / ( far + near - exp_depth * ( far - near ) );
   }
-
     void main(void) {
         vec3 lightDir = normalize(vVertexPosition-lightPos);
         //float diffuseTerm = clamp(dot(normalize(lightDir), normalize(vVertexNormal) ), 0.0, 1.0);
@@ -124,24 +120,16 @@
         vec4 data = texture2D(uSamplerWater, vVertexPosition.xz * 0.5 + 0.5);
         waterHeight = data.r;
         if(vVertexPosition.y < waterHeight){
-            float depthRatio = 1.0;
-            depthRatio = (vVertexPosition.y+1.7)/1.7;
-            //underwaterColor.g = underwaterColor.g *depthRatio;
-            //underwaterColor.r = underwaterColor.g *depthRatio;
-            color *= underwaterColor * depthRatio;
+            color *= underwaterColor;
         }
         //vec2 tCube = intersectCube(lightPos, lightDir, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
         //vec3 hitCube = lightPos - lightDir * tCube.y;
         //if(hitCube.y<0.99)
             //scolor *= vec3(0.5,0.5,0.5);
       
-<<<<<<< HEAD
-      float depth= texture2D(uSamplerDepth, vVertexPosition.xz * 0.5 + 0.5).r;
-=======
       // float depth = texture2D(uSamplerDepth, vVertexPosition.xz * 0.5 + 0.5).r;
       // depth = linearizeDepth( depth, 1.0, 10.0);
       //  color += vec3(1.0-depth,1.0-depth,1.0-depth);
-
         vec3 depth = vDepthPosition;
         depth.z -= 0.0003;
         
@@ -176,12 +164,74 @@
           
           color += clamp(c, 0.0, 1.0);
     
->>>>>>> 9f4dc01dcf10dfa69217bf2fcc5ebb49f1717b3c
       //color = vec3(depth);
        gl_FragColor = vec4(color, 1.0);
     }
 </script>
 
+<script id="godray-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat4 uLightMatrix;    
+    varying vec3 vDepthPosition;
+    varying vec2 screenPos;
+    varying vec2 screenLightPos;
+    vec3 lightPos = vec3(0.0,2.0,-2.0);
+    
+    const mat4 ScaleMatrix = mat4(0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.5, 0.5, 0.5, 1.0);
+    
+    void main(void) {
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+      screenPos = gl_Position.xy;
+      screenLightPos = vec4(uPMatrix * uMVMatrix * vec4(lightPos, 1.0)).xy;
+    }
+        
+</script>
+<script id="godray-fs" type="x-shader/x-fragment">
+    precision highp float;
+    #define TAPS_PER_PASS 6.0
+    uniform sampler2D uSamplerInput;
+    uniform int uPass;
+    varying vec3 vDepthPosition;
+    varying vec2 screenPos;
+    varying vec2 screenLightPos;
+    
+    void main(void){
+        float filterLen = 1.0;
+        float stepSize = filterLen * pow(TAPS_PER_PASS, -uPass);
+        // delta from current pixel to "sun" position
+        vec2 delta = screenLightPos - screenPos;
+        float dist = length( delta );
+        // Step vector (uv space)
+        vec2 stepv = stepSize * delta / dist;
+        // Number of iterations between pixel and sun
+        float iters = dist/stepSize;
+        float col = 0.0;
+        vec2 uv = screenPos;
+        if ( 0.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 1.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 2.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 3.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 4.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 5.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+        
+        gl_FragColor = vec4( col/TAPS_PER_PASS );
+        gl_FragColor.a = 1.0;
+        
+    }
+</script>   
 
 <script id="sky-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -243,7 +293,6 @@
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
-
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
     vec3 underwaterColor = vec3(0.4, 0.9, 1.0);
@@ -265,8 +314,6 @@
       color += diffuse;
       return color;
   }
-
-
     void main(void) {
         vec3 color;
         vec4 data = texture2D(uSamplerWater, vVertexPosition.xz * 0.5 + 0.5);
@@ -286,10 +333,7 @@
           }
        }
       if(vVertexPosition.y < data.r){
-          float depthRatio = 1.0;
-          depthRatio = (vVertexPosition.y+1.9)/1.9;
-          color *= underwaterColor * depthRatio;
-
+          color *= underwaterColor;
         }
         gl_FragColor = vec4(color,1.0);
     }
@@ -336,7 +380,6 @@
     float poolHeight = 0.65;
     const float IOR_AIR = 1.0;
     const float IOR_WATER = 1.333;
-
     float intersectSphere(vec3 origin, vec3 ray, vec3 sphereCenter, float sphereRadius) {
       vec3 toSphere = origin - sphereCenter;
       float a = dot(ray, ray);
@@ -360,14 +403,12 @@
         float tFar = min(min(t2.x, t2.y), t2.z);
         return vec2(tNear, tFar);
     }
-
     float intersectTri(vec3 origin, vec3 ray, vec3 a, vec3 b,  vec3 c) {
       vec3 ab = b - a;
       vec3 ac = c - a;
       vec3 normal = normalize(cross(ab, ac));
       vec3 oa = a - origin;
       float t = dot(normal, oa) / dot(normal, ray);
-
       if (t > 0.0) {
         vec3 hit = origin + ray*t;
         vec3 toHit = hit - a;
@@ -383,10 +424,8 @@
           return t;
         }
       }
-
       return 1.0e6;
     }
-
     vec3 getSphereColor(vec3 point,  vec3 sphereCenter, float sphereRadius) {
       vec3 color = vec3(0.5);
       color *= 1.0 - 0.9 / pow((1.0 + sphereRadius - abs(point.x)) / sphereRadius, 3.0);
@@ -438,14 +477,11 @@
         
         return wallColor * scale;
   }
-
-
     vec3 getRayColor(vec3 origin, vec3 ray, vec3 waterColor) {
         vec3 color;
         float q = intersectSphere(origin, ray, uSphereCenter, uSphereRadius);
         if (q < 1.0e6) {
           color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
-
         } else if (ray.y < 0.0) {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           color = getWallColor(origin + ray * t.y);
@@ -459,13 +495,7 @@
             color += vec3(pow(max(0.0, dot(lightDir, ray)), 5000.0)) * vec3(10.0, 8.0, 6.0);
           }
         }
-        if (ray.y < 0.0){
-            float depthRatio = 1.0;
-            if(waterColor.r == 0.4){
-                depthRatio = (vVertexPosition.y+1.7)/1.7;               
-            }
-            color *= waterColor*depthRatio;
-        }
+        if (ray.y < 0.0) color *= waterColor;
         return color;
       }
     void main(void) {
@@ -587,7 +617,7 @@
        shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);
        shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
       // shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
-       gl_FragColor.g = shadow*0.8;
+       gl_FragColor.g = shadow;
       
       //caustics
        vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
@@ -705,7 +735,6 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform vec3 uCenter;
-
     void main (void){
       vec3 position = aVertexPosition + uCenter;
       gl_Position = uPMatrix * uMVMatrix * vec4(position, 1.0);
@@ -725,9 +754,7 @@
  <script id="quad-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
     attribute vec2 aTextureCoord;
-
     varying vec2 vCoord;
-
     void main (void){
       vCoord = vec2(aTextureCoord.x, aTextureCoord.y);
       gl_Position = vec4( aVertexPosition, 1.0 );
@@ -739,7 +766,6 @@
     precision highp float;
     uniform sampler2D uSamplerDepth;
     varying vec2 vCoord;
-
     float linearizeDepth( float exp_depth, float near, float far ){
   return ( 2.0 * near ) / ( far + near - exp_depth * ( far - near ) );
 }
@@ -754,41 +780,32 @@
 
 
 <script id="perlin-vs" type="x-shader/x-vertex">
-
     attribute vec3 aVertexPosition;
     uniform float uTime;
     uniform sampler2D uSamplerPerm;
     uniform sampler2D uSamplerGrad;
-
     varying float vHeight;
     varying vec2 vCoord;
-
     vec3 fade( vec3 t ) {
           return t * t * t * ( t * ( t * 6.0 - 15.0 ) + 10.0 );
       }
-
       float perm( float x ){
           return texture2D( uSamplerPerm, vec2(x/256.0,0.0) ).a * 256.0;
       } 
-
       float grad( float x, vec3 pp ) {
           return dot( texture2D( uSamplerGrad, vec2( x,0.0) ).rgb, pp );
       }
-
       float noise( vec3 p )
       {
           vec3 point = mod( floor(p), 256.0 );
           p -= floor(p);
-
           vec3 fa = fade( p );
-
           float A = perm( point.x ) + point.y;
           float AA = perm( A ) + point.z;
           float AB = perm( A + 1.0 ) + point.z;
           float B = perm( point.x + 1.0 ) + point.y;
           float BA = perm( B ) + point.z;
           float BB = perm( B+1.0 ) + point.z;
-
           return mix( 
                       mix(
                           mix( grad(perm(AA), p), grad( perm(BA), p + vec3(-1.0, 0.0, 0.0) ), fa.x),
@@ -808,92 +825,75 @@
 /*     const  float ONE = 0.00390625;        // 1/ 256
     const  float HALF = 0.001953125;     //0.5/256
     //reference: http://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-
     float fade(float t) {
       // return t*t*(3.0-2.0*t); // Old fade, yields discontinuous second derivative
       return t*t*t*(t*(t*6.0-15.0)+10.0); // Improved fade, yields C2-continuous noise
     }
-
     float get_grad(vec2 p, vec3 d){
       return dot(texture2D(uSamplerPerm, p).rgb, d);
     }
-
     float get_perm(vec2 p){
       return  texture2D(uSamplerPerm, p).a ;
     }
-
     float pnoise3D(vec3 P){
       vec3 Pi = ONE*floor(P)+HALF;  // Integer part,
       vec3 Pf = fract(P);     // Fractional part 
-
      // Noise contributions from (x=0, y=0), z=0 and z=1
       float perm00 = get_perm(Pi.xy);//texture2D(uSamplerPerm, Pi.xy).a ;
       float n000 = get_grad(vec2(perm00, Pi.z), Pf);
       float n001 = get_grad(vec2(perm00, Pi.z + ONE), Pf - vec3(0.0, 0.0, 1.0));
-
       // Noise contributions from (x=0, y=1), z=0 and z=1
       float perm01 = get_perm(Pi.xy + vec2(0.0, ONE));
       float n010 = get_grad(vec2(perm01, Pi.z), Pf - vec3(0.0, 1.0, 0.0));
       float n011 = get_grad(vec2(perm01, Pi.z + ONE), Pf - vec3(0.0, 1.0, 1.0));
-
       // Noise contributions from (x=1, y=0), z=0 and z=1
       float perm10 = get_perm(Pi.xy + vec2(ONE, 0.0));
       float n100 = get_grad(vec2(perm10, Pi.z), Pf - vec3(1.0, 0.0, 0.0));
       float n101 = get_grad(vec2(perm10, Pi.z + ONE), Pf - vec3(1.0, 0.0, 1.0));
-
       // Noise contributions from (x=1, y=1), z=0 and z=1
       float perm11 = get_perm(Pi.xy + vec2(ONE, ONE));
       float n110 = get_grad(vec2(perm11, Pi.z), Pf - vec3(1.0, 1.0, 0.0));
       float n111 = get_grad(vec2(perm11, Pi.z + ONE), Pf - vec3(1.0, 1.0, 1.0));
-
       return mix(
         mix( mix(n000,n100,fade(Pf.x)), mix(n010,n110,fade(Pf.x)), fade(Pf.y) ),
         mix( mix(n001,n101,fade(Pf.x)), mix(n011,n111,fade(Pf.x)), fade(Pf.y) ),
         fade(Pf.z)
         );
     }*/
-
     void main(void)
     {
        //vertex wave
         // float s_contrib = sin( aVertexPosition.x*2.0*3.14159 + uTime );
         // float t_contrib = cos( aVertexPosition.y*2.0*3.14159 + uTime );
         // vHeight = s_contrib*t_contrib;
-
         //perlin noise wave
         vHeight = noise( vec3( aVertexPosition.x*2.0 + uTime, aVertexPosition.y*2.0 + uTime, 0.0 ) );
   
         gl_Position = vec4(aVertexPosition.xyz, 1.0);
         vCoord = aVertexPosition.xy * 0.5 + 0.5;
-
     }
       
 </script>
 
 <script id="perlin-fs" type="x-shader/x-fragment">
     precision mediump float;
-
     uniform sampler2D uSamplerWater;
     varying float vHeight;
     varying vec2 vCoord;
-
     void main(void)
     {
         vec4 data = texture2D(uSamplerWater, vCoord);
         data.r += vHeight * 0.0018;
       
         gl_FragColor = data;
-
     }    
 </script>
 
 
 <script id="rain-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
-
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
-
     void main(void) {
       gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
     }
@@ -908,8 +908,10 @@
     }
 </script>
 
+
     
 
+    
 </head> 
 
 <body onload="webGLStart();">

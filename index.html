@@ -169,6 +169,69 @@
     }
 </script>
 
+<script id="godray-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat4 uLightMatrix;    
+    varying vec3 vDepthPosition;
+    varying vec2 screenPos;
+    varying vec2 screenLightPos;
+    vec3 lightPos = vec3(0.0,2.0,-2.0);
+    
+    const mat4 ScaleMatrix = mat4(0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.5, 0.5, 0.5, 1.0);
+    
+    void main(void) {
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+      screenPos = gl_Position.xy;
+      screenLightPos = vec4(uPMatrix * uMVMatrix * vec4(lightPos, 1.0)).xy;
+    }
+        
+</script>
+<script id="godray-fs" type="x-shader/x-fragment">
+    precision highp float;
+    #define TAPS_PER_PASS 6.0
+    uniform sampler2D uSamplerInput;
+    uniform float uPass;
+    varying vec3 vDepthPosition;
+    varying vec2 screenPos;
+    varying vec2 screenLightPos;
+    
+    void main(void){
+        float filterLen = 1.0;
+        float stepSize = filterLen * pow(TAPS_PER_PASS, -uPass);
+        // delta from current pixel to "sun" position
+        vec2 delta = screenLightPos - screenPos;
+        float dist = length( delta );
+        // Step vector (uv space)
+        vec2 stepv = stepSize * delta / dist;
+        // Number of iterations between pixel and sun
+        float iters = dist/stepSize;
+        float col = 0.0;
+        vec2 uv = screenPos;
+        if ( 0.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 1.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 2.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 3.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 4.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+
+		if ( 5.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
+		uv += stepv;
+        
+        gl_FragColor = vec4( col/TAPS_PER_PASS );
+        gl_FragColor.a = 1.0;
+        
+    }
+</script>   
 
 <script id="sky-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -845,8 +908,10 @@
     }
 </script>
 
+
     
 
+    
 </head> 
 
 <body onload="webGLStart();">
