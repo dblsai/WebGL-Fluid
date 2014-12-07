@@ -25,6 +25,7 @@
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;
     uniform mat4 uLightMatrix;
+    uniform mat4 uLightProj;
     varying vec2 vTextureCoord;
     varying vec3 vVertexPosition;
     varying vec3 vVertexNormal;
@@ -37,9 +38,9 @@
        // vVertexPosition = (uMVMatrix*vec4(aVertexPosition,1.0)).xyz;
        
         vTextureCoord = aTextureCoord;
-       // vVertexNormal = aVertexNormal;
-       vVertexNormal = (uNmlMatrix * vec4(aVertexNormal,0.0)).xyz;  
-       vDepthPosition = (ScaleMatrix * uPMatrix* uLightMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        vVertexNormal = aVertexNormal;
+      // vVertexNormal = (uNmlMatrix * vec4(aVertexNormal,0.0)).xyz;  
+       vDepthPosition = (ScaleMatrix * uLightProj * uLightMatrix * vec4(aVertexPosition, 1.0)).xyz;
     }
 </script>
 
@@ -53,6 +54,7 @@
     uniform sampler2D uSamplerCaustic;
     uniform sampler2D uSamplerWater; 
     uniform sampler2D uSamplerDepth;
+    uniform sampler2D uSamplerGodray;
   
    uniform vec3 uSphereCenter;
    uniform float uSphereRadius;
@@ -126,35 +128,36 @@
         //vec3 hitCube = lightPos - lightDir * tCube.y;
         //if(hitCube.y<0.99)
             //scolor *= vec3(0.5,0.5,0.5);
-      
-      // float depth = texture2D(uSamplerDepth, vVertexPosition.xz * 0.5 + 0.5).r;
-      // depth = linearizeDepth( depth, 1.0, 10.0);
-      //  color += vec3(1.0-depth,1.0-depth,1.0-depth);
-        vec3 depth = vDepthPosition;
-        depth.z -= 0.0003;
-        
+            
+      // float dep = texture2D(uSamplerDepth, vVertexPosition.xz * 0.5 + 0.5).r;
+      // dep = linearizeDepth( dep, 1.0, 10.0);
+      //  color += vec3(1.0-dep,1.0-dep,1.0-dep);
+
+        if(vVertexNormal.y<-0.999){
+          vec3 position = vDepthPosition;
           float texelSize = 1.0 / 512.0;
           vec3 c = vec3(0.0);
-          float shadow = 0.0;
+          float depth = 0.0;
           
           // Filter
           int count = 0;
           for (int y = -1; y <= 1; ++y){
             for (int x = -1; x <= 1; ++x){
-              vec2 offset = depth.xy + vec2(float(x) * texelSize, float(y) * texelSize);
-              if ( offset.x >= 0.0 && offset.x <= 1.0 && offset.y >= 0.0 && offset.y <= 1.0 ){
-                shadow = texture2D(uSamplerDepth, offset).r;
-                if ( depth.z > shadow ){   //part of shadow
-                  c += vec3(0.1, 0.1, 0.1);
+              vec2 offset = position.xy + vec2(float(x) * texelSize, float(y) * texelSize);
+    
+                depth = texture2D(uSamplerDepth, offset).r;
+                c += 1.0-depth;
+                if ( position.y > depth ){   //part of shadow
+                 // c += vec3(0.1, 0.1, 0.1);
                  // color = vec3(1.0, 0.0, 0.0);
                 }
-               else{
+                else{
                  // c += vColour.xyz;
                   //color = vec3(1.0, 0.0, 0.0);
                 }
                 ++count;
               }
-            }
+            
           }
           
           if ( count > 0 )
@@ -163,8 +166,8 @@
             //c = vColour.xyz;
           
           color += clamp(c, 0.0, 1.0);
-    
-      //color = vec3(depth);
+        }
+        color += 0.75* vec3(texture2D(uSamplerGodray, vVertexPosition.xz * 0.5 + 0.5).r);
        gl_FragColor = vec4(color, 1.0);
     }
 </script>
@@ -192,7 +195,7 @@
     precision highp float;
     #define TAPS_PER_PASS 6.0
     uniform sampler2D uSamplerInput;
-    uniform int uPass;
+    uniform float uPass;
     varying vec3 vDepthPosition;
     varying vec2 screenPos;
     varying vec2 screenLightPos;
@@ -756,7 +759,7 @@
     attribute vec2 aTextureCoord;
     varying vec2 vCoord;
     void main (void){
-      vCoord = vec2(aTextureCoord.x, aTextureCoord.y);
+      vCoord = vec2(1.0 - aTextureCoord.x, aTextureCoord.y);
       gl_Position = vec4( aVertexPosition, 1.0 );
     }
 </script>

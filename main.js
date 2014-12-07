@@ -1446,7 +1446,7 @@ function drawGodrayPass1(){
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
     gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
     gl.uniform1f(godrayProg.passUniform, 1.0);
