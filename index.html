@@ -132,10 +132,8 @@
       // dep = linearizeDepth( dep, 1.0, 10.0);
       //  color += vec3(1.0-dep,1.0-dep,1.0-dep);
 
-
-        vec3 position = vDepthPosition;
         if(vVertexNormal.y<-0.999){
-        
+          vec3 position = vDepthPosition;
           float texelSize = 1.0 / 512.0;
           vec3 c = vec3(0.0);
           float depth = 0.0;
@@ -149,10 +147,10 @@
                 depth = texture2D(uSamplerDepth, offset).r;
                 c += 1.0-depth;
                 if ( position.y > depth ){   //part of shadow
-                  c += vec3(0.1, 0.1, 0.1);
+                 // c += vec3(0.1, 0.1, 0.1);
                  // color = vec3(1.0, 0.0, 0.0);
                 }
-               else{
+                else{
                  // c += vColour.xyz;
                   //color = vec3(1.0, 0.0, 0.0);
                 }
