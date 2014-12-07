@@ -89,7 +89,7 @@
     var colorTexture;     //for light-based depth rendering
     var depthTexture2;   //for camera-based depth rendering
     var colorTexture2;   //for camera-based depth rendering
-    var lightInvDir = vec3.normalize(vec3.create([0.5,1.0,0.3]));
+    var lightInvDir = vec3.normalize(vec3.create([0.5,1.2,0.3]));
     var lightMatrix = mat4.create();   //model view matrix for light
     var lightProj = mat4.create();   //projection matrix for light
 
@@ -349,6 +349,8 @@
         causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
         causticProg.sphereRadiusUniform = gl.getUniformLocation(causticProg, "uSphereRadius");
         causticProg.sphereCenterUniform = gl.getUniformLocation(causticProg, "uSphereCenter");
+        causticProg.lightMatrixUniform = gl.getUniformLocation(causticProg, "uLightMatrix");
+        causticProg.lightProjUniform = gl.getUniformLocation(causticProg, "uLightProj");
 
          //-----------------------normal------------------------------------------------
         normalProg = gl.createProgram();
@@ -1215,6 +1217,8 @@ function drawCaustic(){
          gl.uniform1i(causticProg.isSphereUniform, isSphere);
         gl.uniform1f(causticProg.sphereRadiusUniform, sphere.radius);
         gl.uniform3fv(causticProg.sphereCenterUniform, sphere.center);
+        gl.uniformMatrix4fv( causticProg.lightMatrixUniform, false, lightMatrix);
+         gl.uniformMatrix4fv( causticProg.lightProjUniform,false, lightProj);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1360,7 +1364,7 @@ function drawDepth(colTexture, depTexture, mode){   //draw depth from light sour
     gl.useProgram(depthProg);
 
     var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
+    lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
 
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix, lightView);
