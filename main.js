@@ -122,6 +122,8 @@
     //user input
     var u_CausticOnLocation;
     var isSphere;
+    var sphereRadius;
+    var currentPoolPattern;
 
     function sphericalToCartesian( r, a, e ) {
         var x = r * Math.cos(e) * Math.cos(a);
@@ -184,11 +186,16 @@
         gui.add(parameters, 'Caustic');
         gui.add(parameters, 'Wind');
         gui.add(parameters, 'Object', [ 'sphere', 'mesh']);
+        gui.add(parameters, 'Pool_Pattern', ['white brick', 'marble', 'blue tile', 'golden tile']);
+        gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
     };
 
     var parameters = new function(){
         this.Caustic = true;
-        this.Object = "mesh";
+
+        this.Object = "sphere";
+        this.Pool_Pattern = "white brick";
+        this.Sphere_Radius = 0.25;        
         this.Wind = true;
     }
 
@@ -834,14 +841,38 @@ function drawScene() {
     
     if(parameters.Object == "sphere") isSphere = 1;
     else isSphere = 0;
+    if(isSphere == 1){
+        sphereRadius = parameters.Sphere_Radius;
+        sphereObj = createSphere(sphereRadius, 12, 12);
+        initBuffers(sphere, sphereObj);
+        sphere.radius = sphereObj.radius;
 
+        //initObjs();
+    }
     if(parameters.Wind == true) isWindy = true;
     else isWindy = false;
+  
+    if(parameters.Pool_Pattern == "white brick" && currentPoolPattern != "white brick"){
+        initTexture(pool.Texture, "tile/tile3.jpg");
+        currentPoolPattern = "white brick";
+    }
+    if(parameters.Pool_Pattern == "marble" && currentPoolPattern != "marble") {
+        initTexture(pool.Texture, "tile/tile2.jpg");
+        currentPoolPattern = "marble";
+    }
+    if(parameters.Pool_Pattern == "blue tile" && currentPoolPattern != "blue tile"){
+        initTexture(pool.Texture, "tile/tile4.jpg");
+        currentPoolPattern = "blue tile";
+    }
+    if(parameters.Pool_Pattern == "golden tile" && currentPoolPattern != "golden tile"){
+        initTexture(pool.Texture, "tile/tile5.jpg");
+        currentPoolPattern = "golden tile";
+    }
 
     drawDepth();
     drawPool();
     drawSkyBox();
-    if(isSphere) drawObj(sphere);
+    if(isSphere == 1) drawObj(sphere);
     else drawObj(objModel);
     drawWater();
      
@@ -1388,9 +1419,9 @@ function drawWind(){
 }
 
 
-o3djs.require('o3djs.math');
-o3djs.require('o3djs.quaternions');
-o3djs.require('o3djs.particles');
+//o3djs.require('o3djs.math');
+//o3djs.require('o3djs.quaternions');
+//o3djs.require('o3djs.particles');
 
 
 function initRain() {
@@ -1536,6 +1567,8 @@ function webGLStart() {
     initShaders();
 
   //  initBuffers();
+  var sphereObj = createSphere(sphereRadius, 12, 12);
+  
   initBuffers(sky, cubeSky);
   initBuffers(pool, cubePool);
   initBuffers(sphere, sphereObj);
@@ -1548,8 +1581,9 @@ function webGLStart() {
    initObjs();
    // initTexture();
    pool.Texture = gl.createTexture();
-   initTexture(pool.Texture, "tile/tile.png");
-   //initTexture(pool.Texture, "tile/tile2.jpg");
+   //initTexture(pool.Texture, "tile/tile.png");
+   initTexture(pool.Texture, "tile/tile3.jpg");
+   currentPoolPattern = "white brick";
    water.TextureA = gl.createTexture();
    water.TextureB = gl.createTexture();
    water.TextureC = gl.createTexture();
