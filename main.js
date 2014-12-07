@@ -83,11 +83,11 @@
     var sphere = {};
     var objRaw;     //raw primitive data for obj loading
     var objModel;    //processed gl object data for obj
-    var depthModel = {};   //put all necessary vbo, ibo info into this object, for drawing depth
+    var depthModel = {};   //put tmp necessary vbo, ibo info into this object, for drawing depth
 
     var depthTexture;
     var colorTexture;
-    var lightInvDir = vec3.normalize(vec3.create([0.0,1.0,0.0]));
+    var lightInvDir = vec3.normalize(vec3.create([0.5,1.0,0.3]));
 
     var perm  = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
                 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
@@ -188,6 +188,7 @@
         gui.add(parameters, 'Object', [ 'sphere', 'mesh']);
         gui.add(parameters, 'Pool_Pattern', ['white brick', 'marble', 'blue tile', 'golden tile']);
         gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
+        gui.add(parameters, 'Depth_From_Light');
     };
 
     var parameters = new function(){
@@ -197,6 +198,7 @@
         this.Pool_Pattern = "white brick";
         this.Sphere_Radius = 0.25;        
         this.Wind = true;
+        this.Depth_From_Light = false;
     }
 
 
@@ -534,7 +536,7 @@
             img[i] = new Image();
             img[i].onload = function() {
                 ct++;
-                if (ct == 6) {   //upon finish loading all 6 images
+                if (ct == 6) {   //upon finish loading tmp 6 images
                     sky.Texture = gl.createTexture();
                     gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);
                     var targets = [
@@ -617,68 +619,45 @@ function initObjs(){
 
     objRaw.addCallback(function () {
         objModel = new createModel(gl, objRaw);
-        var sum = 0;
-        for(var i=0; i<objModel.numGroups(); i++){
-            sum += objModel.numIndices(i);
-        }
-        // console.log ("obj created with number of indices: " + sum);
-        //console.log("primitive vertices: " + objRaw.vertices(0));
-          var all = {};
-          all.vertices = [];
-          all.indices = [];
-          all.normals = [];
-          all.texcoords = [];
-          for(var i=0; i<cubePool.vertices.length; i++){
-            all.vertices.push(cubePool.vertices[i]);
-          }
+          var tmp = {};
+          tmp.vertices = [];
+          tmp.indices = [];
+          tmp.normals = [];
+          tmp.texcoords = [];
           for(var i=0; i<objRaw.numGroups(); i++){
             for(var j=0; j<objRaw.vertices(i).length; j++){
-                all.vertices.push(objRaw.vertices(i)[j]);
+                tmp.vertices.push(objRaw.vertices(i)[j]);
             }
           }
 
-          for(var i=0; i<cubePool.indices.length; i++){
-            all.indices.push(cubePool.indices[i]);
-          }
           for(var i=0; i<objRaw.numGroups(); i++){
               for(var j=0; j<objRaw.indices(i).length; j++){
-                all.indices.push(objRaw.indices(i)[j]);
+                tmp.indices.push(objRaw.indices(i)[j]);
             }
           }
 
-           for(var i=0; i<cubePool.normals.length; i++){
-            all.normals.push(cubePool.normals[i]);
-          }
+
           for(var i=0; i<objRaw.numGroups(); i++){
               for(var j=0; j<objRaw.normals(i).length; j++){
-                all.normals.push(objRaw.normals(i)[j]);
+                tmp.normals.push(objRaw.normals(i)[j]);
             }
           }
 
-           for(var i=0; i<cubePool.texcoords.length; i++){
-            all.texcoords.push(cubePool.texcoords[i]);
-          }
-          for(var i=0; i<objRaw.numGroups(); i++){
+           for(var i=0; i<objRaw.numGroups(); i++){
               for(var j=0; j<objRaw.texcoords(i).length; j++){
-                all.texcoords.push(objRaw.texcoords(i)[j]);
+                tmp.texcoords.push(objRaw.texcoords(i)[j]);
             }
           }
+         
+          //tmp.numIndices = sum + cubePool.numIndices;
+          tmp.numIndices = tmp.indices.length;
+          initBuffers(depthModel, tmp);
+   
 
-          //all.numIndices = sum + cubePool.numIndices;
-          all.numIndices = all.indices.length;
-          initBuffers(depthModel, all);
+
           // console.log("pool indices: " + cubePool.numIndices);
           // console.log("obj indices: " + sum);
           // console.log("depthModel indices: " + depthModel.IBO.numItems);
-
-         // depthModel.VBO = gl.createBuffer();
-         // gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
-         // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(all.vertices), gl.STATIC_DRAW);
-
-         // depthModel.IBO = gl.createBuffer();
-         // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, depthModel.IBO);
-         // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(all.indices), gl.STATIC_DRAW);
-         // depthModel.IBO.numItems = all.numIndices;
     });
     objRaw.executeCallBackFunc();
     registerAsyncObj(gl, objRaw);
@@ -828,7 +807,7 @@ function duringInterction(x,y){
 
 function drawScene() {
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-    mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+    mat4.perspective(fov, gl.viewportWidth / gl.viewportHeight, 1.0, 40.0, pMatrix);
 
     mat4.identity(mvMatrix);
     mat4.multiply(mvMatrix,view);
@@ -889,11 +868,13 @@ function drawScene() {
     }
 
     //g_particleSystem.draw(viewProjection, g_world, viewInverse);
-    drawQuad();   //this is the debug draw call for depth texture
+    if(parameters.Depth_From_Light == true){
+        drawQuad();   //this is the debug draw ctmp for depth texture
+    }
 }
 
 function drawQuad(){
-     gl.viewport(0, 0, textureSize1, textureSize1);
+  //  gl.viewport(0, 0, textureSize1, textureSize1);
      gl.useProgram(quadProg);
 
      gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
@@ -910,10 +891,16 @@ function drawQuad(){
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
     gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
+    gl.disableVertexAttribArray(quadProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(quadProg.textureCoordAttribute);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 }
 
 function drawPool(){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
     gl.useProgram(poolProg);
 
     gl.enable(gl.CULL_FACE);
@@ -1328,30 +1315,31 @@ function drawInteraction(){
 }
 
 function drawDepth(){   //draw depth from light source
-    initDepthFrameBuffer(colorTexture, depthTexture, textureSize1, textureSize1);
-    gl.viewport(0, 0, textureSize1, textureSize1);
+    initDepthFrameBuffer(colorTexture, depthTexture, gl.viewportWidth, gl.viewportHeight);
 
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.colorMask(false, false, false, false);  //disable writing to color
     gl.useProgram(depthProg);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
-    gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
-        
     var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
     var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix, lightView);
   //  mat4.inverse(lightMatrix);
+   // gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
+   //  gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix); 
     gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
-    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix);    //model view matrix is from light
+    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix); 
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
+    gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
+        
     gl.uniform3fv(depthProg.centerUniform, sphere.center);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, depthModel.IBO);
+    gl.drawElements(gl.TRIANGLES,depthModel.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+
 
      //-------------- after rendering---------------------------------------------------
     gl.disableVertexAttribArray(depthProg.vertexPositionAttribute);
@@ -1361,8 +1349,7 @@ function drawDepth(){   //draw depth from light source
 
     // reset viewport
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    gl.disable(gl.DEPTH_TEST);
     
 }
 
@@ -1468,7 +1455,7 @@ function initDepthFrameBuffer(coltexture, deptexture, width, height){   // rende
     //renderbuffer1 = renderbuffer1 || gl.createRenderbuffer();
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer1);
-   // gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer1);
+   // gl.bindRenderbuffer(gl.NDERBUFFER, renderbuffer1);
   //gl.bindFramebuffer(gl.RENDERBUFFER, null);
 
     framebuffer.width = width;
@@ -1505,7 +1492,7 @@ function check(){
     //check if resources are ready, one by one
     for( i = 0; i < gl.asyncObjArray.length; ++i ){
         if( gl.asyncObjArray[i].isReady() ){
-            //Run object's registered callback functions
+            //Run object's registered ctmpback functions
             gl.asyncObjArray[i].executeCallBackFunc();
             n -= 1;
         }
@@ -1596,9 +1583,9 @@ function webGLStart() {
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
-  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, textureSize1, textureSize1);    //depth texture is 512x512
+  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);    
   //initCustomeTexture(depthTexture, gl.RGBA, filter, gl.FLOAT, textureSize1, textureSize1); 
-  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
+  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);
 
