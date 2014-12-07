@@ -1438,20 +1438,14 @@ function drawGodrayPass1(){
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
     setMatrixUniforms(godrayProg);
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 1.0);
+    gl.uniform1f(godrayProg.passUniform, 1.0);
     
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
     gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
@@ -1475,21 +1469,15 @@ function drawGodrayPass2(){
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
-    setMatrixUniforms(godrayProg);
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
 
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, godrayTextureB);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 2.0);
+    gl.uniform1f(godrayProg.passUniform, 2.0);
     
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
     gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
@@ -1513,21 +1501,14 @@ function drawGodrayPass3(){
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
-    setMatrixUniforms(godrayProg);
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, godrayTextureA);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 3.0);
+    gl.uniform1f(godrayProg.passUniform, 3.0);
     
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
     gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
