@@ -171,7 +171,7 @@
           
           color += clamp(c, 0.0, 1.0);
         }
-        color += 0.25* vec3(texture2D(uSamplerGodray, vVertexPosition.xz * 0.5 + 0.5).r);
+        //color += 0.25* vec3(texture2D(uSamplerGodray, vVertexPosition.xz * 0.5 + 0.5).r);
        gl_FragColor = vec4(color, 1.0);
     }
 </script>
@@ -234,7 +234,7 @@
 		if ( 5.0 <= iters && uv.y < 1.0 ) col += texture2D( uSamplerInput, uv ).r;
 		uv += stepv;
         
-        gl_FragColor = vec4( col/TAPS_PER_PASS );
+        gl_FragColor = vec4(1.0);//vec4( col/TAPS_PER_PASS );
         gl_FragColor.a = 1.0;
         
     }

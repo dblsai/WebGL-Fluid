@@ -899,10 +899,10 @@ function drawScene() {
 
     //g_particleSystem.draw(viewProjection, g_world, viewInverse);
     if(parameters.Depth_From_Light == true){
-        drawQuad(depthTexture);   //this is the debug draw ctmp for depth texture
+        drawQuad(godrayTextureA);   //this is the debug draw ctmp for depth texture
     }
     else if(parameters.Depth_From_Camera == true){
-        drawQuad(depthTexture2);
+        drawQuad(godrayTextureB);
     }
 }
 
@@ -1463,7 +1463,7 @@ function drawGodrayPass1(){
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture2);
     gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
     gl.uniform1f(godrayProg.passUniform, 1.0);
@@ -1490,7 +1490,7 @@ function drawGodrayPass2(){
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
-
+    setMatrixUniforms(godrayProg);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
@@ -1522,6 +1522,7 @@ function drawGodrayPass3(){
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
+    setMatrixUniforms(godrayProg);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 

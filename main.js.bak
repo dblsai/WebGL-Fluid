@@ -85,8 +85,10 @@
     var objModel;    //processed gl object data for obj
     var depthModel = {};   //put tmp necessary vbo, ibo info into this object, for drawing depth
 
-    var depthTexture;
-    var colorTexture;
+    var depthTexture;    //for light-based depth rendering
+    var colorTexture;     //for light-based depth rendering
+    var depthTexture2;   //for camera-based depth rendering
+    var colorTexture2;   //for camera-based depth rendering
     var lightInvDir = vec3.normalize(vec3.create([0.5,1.0,0.3]));
     var lightMatrix = mat4.create();   //model view matrix for light
     var lightProj = mat4.create();   //projection matrix for light
@@ -191,6 +193,7 @@
         gui.add(parameters, 'Pool_Pattern', ['white brick', 'marble', 'blue tile', 'golden tile']);
         gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
         gui.add(parameters, 'Depth_From_Light');
+        gui.add(parameters, 'Depth_From_Camera');
     };
 
     var parameters = new function(){
@@ -201,6 +204,7 @@
         this.Sphere_Radius = 0.25;        
         this.Wind = true;
         this.Depth_From_Light = false;
+        this.Depth_From_Camera = false;
     }
 
 
@@ -232,6 +236,7 @@
         poolProg.sphereRadiusUniform = gl.getUniformLocation(poolProg, "uSphereRadius");
         poolProg.sphereCenterUniform = gl.getUniformLocation(poolProg, "uSphereCenter");
         poolProg.causticOnUniform = gl.getUniformLocation(poolProg, "uCausticOn");
+        poolProg.isSphereUniform = gl.getUniformLocation(poolProg, "uIsSphere");
 
 
 
@@ -339,6 +344,7 @@
         gl.useProgram(causticProg);
 
         causticProg.samplerWaterUniform = gl.getUniformLocation(causticProg, "uSamplerWater");
+        causticProg.isSphereUniform = gl.getUniformLocation(causticProg, "uIsSphere");
         causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
         causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
         causticProg.sphereRadiusUniform = gl.getUniformLocation(causticProg, "uSphereRadius");
@@ -868,7 +874,8 @@ function drawScene() {
         currentPoolPattern = "golden tile";
     }
 
-    drawDepth();
+    drawDepth(colorTexture,depthTexture, 0);   //depth from light
+    drawDepth(colorTexture2, depthTexture2, 1);   //depth from camera
     drawGodrayPass1();
     drawGodrayPass2();
     drawGodrayPass3();
@@ -892,11 +899,14 @@ function drawScene() {
 
     //g_particleSystem.draw(viewProjection, g_world, viewInverse);
     if(parameters.Depth_From_Light == true){
-        drawQuad();   //this is the debug draw ctmp for depth texture
+        drawQuad(water.TextureC);   //this is the debug draw ctmp for depth texture
+    }
+    else if(parameters.Depth_From_Camera == true){
+        drawQuad(godrayTextureB);
     }
 }
 
-function drawQuad(){
+function drawQuad(texture){
   //  gl.viewport(0, 0, textureSize1, textureSize1);
      gl.useProgram(quadProg);
 
@@ -909,7 +919,7 @@ function drawQuad(){
     gl.enableVertexAttribArray(quadProg.textureCoordAttribute);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(quadProg.samplerDepthUniform, 0);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
@@ -965,6 +975,7 @@ function drawPool(){
     gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
     gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
     gl.uniform1f(poolProg.causticOnUniform, u_CausticOnLocation);
+    gl.uniform1i(poolProg.isSphereUniform, isSphere);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
     gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1201,6 +1212,7 @@ function drawCaustic(){
         gl.uniform1i(causticProg.samplerWaterUniform,0);
 
         gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
+         gl.uniform1i(causticProg.isSphereUniform, isSphere);
         gl.uniform1f(causticProg.sphereRadiusUniform, sphere.radius);
         gl.uniform3fv(causticProg.sphereCenterUniform, sphere.center);
 
@@ -1339,8 +1351,8 @@ function drawInteraction(){
 
 }
 
-function drawDepth(){   //draw depth from light source
-    initDepthFrameBuffer(colorTexture, depthTexture, gl.viewportWidth, gl.viewportHeight);
+function drawDepth(colTexture, depTexture, mode){   //draw depth from light source
+    initDepthFrameBuffer(colTexture, depTexture, gl.viewportWidth, gl.viewportHeight);
 
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -1353,10 +1365,15 @@ function drawDepth(){   //draw depth from light source
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix, lightView);
   //  mat4.inverse(lightMatrix);
-   // gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
-   //  gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix); 
-    gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
-    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix); 
+    if(mode == 0){
+      
+        gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
+        gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix); 
+    }
+    else if(mode ==1){
+         gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
+         gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix); 
+    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
     gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
@@ -1446,7 +1463,7 @@ function drawGodrayPass1(){
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture2);
     gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
     gl.uniform1f(godrayProg.passUniform, 1.0);
@@ -1696,6 +1713,8 @@ function webGLStart() {
    water.TextureC = gl.createTexture();
    depthTexture = gl.createTexture();
    colorTexture = gl.createTexture();
+   depthTexture2 = gl.createTexture();
+   colorTexture2 = gl.createTexture();
    permTexture = gl.createTexture();
    gradTexture = gl.createTexture();
    godrayTextureA = gl.createTexture();
@@ -1705,14 +1724,15 @@ function webGLStart() {
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
-  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);    
-  //initCustomeTexture(depthTexture, gl.RGBA, filter, gl.FLOAT, textureSize1, textureSize1); 
+  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
+  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight); 
+  initCustomeTexture(depthTexture2, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
+  initCustomeTexture(colorTexture2, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);   
+  
 
 
   initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
   initCustomeTexture(godrayTextureB, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
-
-  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
 
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);

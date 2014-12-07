@@ -40,7 +40,7 @@
         vTextureCoord = aTextureCoord;
         vVertexNormal = aVertexNormal;
       // vVertexNormal = (uNmlMatrix * vec4(aVertexNormal,0.0)).xyz;  
-       vDepthPosition = (ScaleMatrix * uLightProj * uLightMatrix * vec4(aVertexPosition, 1.0)).xyz;
+       vDepthPosition = (ScaleMatrix * uLightProj * uLightMatrix * vec4(vVertexPosition, 1.0)).xyz;
     }
 </script>
 
@@ -59,6 +59,8 @@
    uniform vec3 uSphereCenter;
    uniform float uSphereRadius;
    uniform float uCausticOn;
+   uniform int uIsSphere;
+
     float waterHeight = 0.0;
     vec3 lightPos = vec3(0.0,2.0,-2.0);
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
@@ -100,7 +102,7 @@
         vec3 refractedLight = -refract(-lightDir, vec3(0.0, 1.0, 0.0), IOR_AIR / IOR_WATER);
         float diffuse = max(0.0, dot(refractedLight, normal));
         vec4 data = texture2D(uSamplerWater, point.xz * 0.5 + 0.5);
-      if (point.y < data.r ) {
+        if (point.y < data.r ) {
            vec4 caustic = texture2D(uSamplerCaustic, 0.65 * (point.xz - point.y * refractedLight.xz / refractedLight.y) * 0.5 + 0.5);
            if(uCausticOn > 0.0)
                 scale += diffuse * caustic.r * 2.0 * caustic.g;
@@ -133,7 +135,7 @@
       // dep = linearizeDepth( dep, 1.0, 10.0);
       //  color += vec3(1.0-dep,1.0-dep,1.0-dep);
 
-        if(vVertexNormal.y<-0.999){
+        if(vVertexNormal.y<-0.999 && uIsSphere == 0){
           vec3 position = vDepthPosition;
           float texelSize = 1.0 / 512.0;
           vec3 c = vec3(0.0);
@@ -141,15 +143,17 @@
           
           // Filter
           int count = 0;
+
           for (int y = -1; y <= 1; ++y){
             for (int x = -1; x <= 1; ++x){
               vec2 offset = position.xy + vec2(float(x) * texelSize, float(y) * texelSize);
     
                 depth = texture2D(uSamplerDepth, offset).r;
-                c += 1.0-depth;
-                if ( position.y > depth ){   //part of shadow
-                 // c += vec3(0.1, 0.1, 0.1);
-                 // color = vec3(1.0, 0.0, 0.0);
+                depth = linearizeDepth(depth, 1.0, 20.0);
+        
+                if ( position.z > depth ){   //part of shadow
+                  c += vec3(0.1, 0.1, 0.1);
+                 //color = vec3(1.0, 0.0, 0.0);
                 }
                 else{
                  // c += vColour.xyz;
@@ -160,14 +164,14 @@
             
           }
           
-          if ( count > 0 )
-            c /= float(count);
+         // if ( count > 0 )
+           // c /= float(count);
           //else
             //c = vColour.xyz;
           
           color += clamp(c, 0.0, 1.0);
         }
-        color += 0.75* vec3(texture2D(uSamplerGodray, vVertexPosition.xz * 0.5 + 0.5).r);
+        //color += 0.25* vec3(texture2D(uSamplerGodray, vVertexPosition.xz * 0.5 + 0.5).r);
        gl_FragColor = vec4(color, 1.0);
     }
 </script>
@@ -584,6 +588,7 @@
     precision highp float;
     uniform float uSphereRadius;
     uniform vec3 uSphereCenter;
+    uniform int uIsSphere;
     uniform int OES_standard_derivatives;
     #extension GL_OES_standard_derivatives : enable
      varying vec3 oldPos;
@@ -612,16 +617,17 @@
        //   gl_FragColor = vec4(0.2, 0.2, 0.0, 0.0);
       // }
          
-      //sphere shadow
-       vec3 dir = (uSphereCenter - newPos) / uSphereRadius;
-       vec3 area = cross(dir, refractedLight);
-       float shadow = dot(area, area);
-       float dist = dot(dir, -refractedLight);
-       shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);
-       shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
-      // shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
-       gl_FragColor.g = shadow;
-      
+      if(uIsSphere == 1){
+        //sphere shadow
+         vec3 dir = (uSphereCenter - newPos) / uSphereRadius;
+         vec3 area = cross(dir, refractedLight);
+         float shadow = dot(area, area);
+         float dist = dot(dir, -refractedLight);
+         shadow = 1.0 + (shadow - 1.0) / (0.05 + dist * 0.025);
+         shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
+        // shadow = mix(1.0, shadow, clamp(dist * 2.0, 0.0, 1.0));
+         gl_FragColor.g = shadow;
+      }
       //caustics
        vec2 t = intersectCube(newPos, -refractedLight, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
        float expTerm = -200.0 / (1.0 + 10.0 * (t.y - t.x)) * (newPos.y - refractedLight.y * t.y - 1.0 / 2.0);
