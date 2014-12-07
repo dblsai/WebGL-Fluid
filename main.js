@@ -87,7 +87,7 @@
 
     var depthTexture;
     var colorTexture;
-    var lightInvDir = vec3.normalize(vec3.create([0.5,1.2,0.3]));
+    var lightInvDir = vec3.normalize(vec3.create([0.0,1.0,0.0]));
 
     var perm  = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
                 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
@@ -858,7 +858,7 @@ function drawScene() {
     }
 
     //g_particleSystem.draw(viewProjection, g_world, viewInverse);
-    //drawQuad();   //this is the debug draw call for depth texture
+    drawQuad();   //this is the debug draw call for depth texture
 }
 
 function drawQuad(){
@@ -1314,12 +1314,11 @@ function drawDepth(){   //draw depth from light source
 
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
+  //  mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.uniform3fv(depthProg.centerUniform, sphere.center);
-    console.log("objmode: "+ objModel.IBO(0).numItems);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
     gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
 
