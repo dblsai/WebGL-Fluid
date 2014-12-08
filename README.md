@@ -8,7 +8,7 @@ Please also ensure that you have below WebGL extensions, `OES_texture_float`, `O
 Recommendation is to use latest Firefox / Chrome running on GPU.
 
 [Live Demo](http://dblsai.github.io/WebGL-Fluid)     
-[Video Demo](https://www.youtube.com/watch?v=Wq27HIlzpmQ&feature=youtu.be) 
+[Video Demo](http://youtu.be/Lm06d5o5KRw) 
 
 FEATURES
 -------------------------------------------------------------------------------
@@ -32,6 +32,14 @@ Here we simplify the computation process by making some assumptions:
 
 for each point we calculate two refract rays, one is using vertical normal and the other is using the real normal. And we get the caustic value by compare the two refract rays, Then write the caustic value to the caustic map.
 
+* **Obj Interaction**   
+* **God Ray**  
+
+* **Wind**   
+Use Perlin noise as a noise texture to change water height based on noise.  
+
+* **Rain**  
+Pseudo random mouse click.  
 
 WATER SIMULATION
 -------------------------------------------------------------------------------
@@ -68,9 +76,28 @@ This shader calculates wave pattern based on sphere movement.
 `height.y += volume in water (oldCenter)`   
 `height -= volume in water(newCenter)`  
 
+OBJ INTERACTION & SHADING
+-------------------------------------------------------------------------------
+* **Obj Shading**   
+Load the obj by Threejs obj loader, then shade it by diffuse BRDF.  
 
 
-PERFORMANCE EVALUATION
+* **Obj Shadow**    
+This is done by a Shadow Map(depth texture) that is rendered a from the point of view of light. 
+Then in the shader, transform vertex into the light view space, determine shadow by the following rule
+`if(position.z > depth) ---> part of shadow`    
+![ObjShadow](/pics/objShadow.png) 
+
+* **Obj Reflection & Refraction**  
+This can be turn on under GUI `debug image` under `draw_obj_reflect`. The idea is similar to shadow map, 
+to render a reflection texture from the point of view of reflection point, and use this texture for shading the water.  
+Now the reflection and refraction positions are not right, to be fixed in the future.    
+![ObjReflection](/pics/objReflection.png)  
+
+
+ 
+
+PERFORMANCE EVALUATION   
 -------------------------------------------------------------------------------
 
 ![Analysis](/pics/Analysis.png)
@@ -83,6 +110,7 @@ INTERACTION
 * Right Mouse Button - rotate  
 * Left Mouse Button - interact  
 * Middle Mouse Wheel - zoom  
+* GUI - change skybox, change object, add wind/rain effect  
 
 
 REFERRENCES
@@ -90,4 +118,5 @@ REFERRENCES
 * WebGL Water by Evan Wallace : [Evan Wallace](http://madebyevan.com/webgl-water/) 
 * Water Caustic: [GPU Gem](http://http.developer.nvidia.com/GPUGems/gpugems_ch02.html)
 * WebGL Rendering to Texture: [Learing WebGL](http://learningwebgl.com/blog/?p=1786)
+* Shadow Map: http://www.nutty.ca/webgl/shadows/  
 
