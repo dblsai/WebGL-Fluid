@@ -27,6 +27,7 @@
     var windProg;
     var rainProg;
     var godrayProg;
+    var reflectProg;
     
     //rendering
     var framebuffer;
@@ -90,9 +91,13 @@
     var colorTexture;     //for light-based depth rendering
     var depthTexture2;   //for camera-based depth rendering
     var colorTexture2;   //for camera-based depth rendering
+    var depthTexture3;   //for reflection-based depth rendering
+    var colorTexture3;   //for reclection-based depth rendering
     var lightInvDir = vec3.normalize(vec3.create([0.5,1.2,0.3]));
     var lightMatrix = mat4.create();   //model view matrix for light
     var lightProj = mat4.create();   //projection matrix for light
+    var reflectProj = mat4.create();
+    var reflectModelView = mat4.create();
 
     var perm  = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
                 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
@@ -123,7 +128,7 @@
 
     var permTexture;
     var gradTexture;
-    var objTexture;
+    var reflectTexture;
 
     //user input
     var u_CausticOnLocation;
@@ -199,7 +204,7 @@
         gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
         gui.add(parameters, 'Depth_From_Light');
         gui.add(parameters, 'Depth_From_Camera');
-        
+        gui.add(parameters, 'Reflection_Texture');
     };
 
     var parameters = new function(){
@@ -212,6 +217,7 @@
         this.Rain = false;
         this.Depth_From_Light = false;
         this.Depth_From_Camera = false;
+        this.Reflection_Texture = false;
             
     }
 
@@ -266,7 +272,7 @@
         objProg.pMatrixUniform = gl.getUniformLocation(objProg, "uPMatrix");
         objProg.mvMatrixUniform = gl.getUniformLocation(objProg, "uMVMatrix");
         objProg.nmlMatrixUniform = gl.getUniformLocation(objProg, "uNmlMatrix");
-        objProg.CenterUniform = gl.getUniformLocation(objProg, "uCenter");
+        objProg.centerUniform = gl.getUniformLocation(objProg, "uCenter");
         objProg.sphereCenterUniform = gl.getUniformLocation(objProg, "uSphereCenter");
         objProg.sphereRadiusUniform = gl.getUniformLocation(objProg, "uSphereRadius");
         objProg.samplerWaterUniform = gl.getUniformLocation(objProg, "uSamplerWater");
@@ -313,11 +319,13 @@
 
             waterProg[i].pMatrixUniform = gl.getUniformLocation(waterProg[i], "uPMatrix");
             waterProg[i].mvMatrixUniform = gl.getUniformLocation(waterProg[i], "uMVMatrix");
+            waterProg[i].rmvMatrixUniform = gl.getUniformLocation(waterProg[i], "uReflectpMatrix");
+            waterProg[i].rpMatrixUniform = gl.getUniformLocation(waterProg[i], "uReflectmvMatrix");
             waterProg[i].samplerSkyUniform = gl.getUniformLocation(waterProg[i], "uSamplerSky");
             waterProg[i].samplerTileUniform = gl.getUniformLocation(waterProg[i], "uSamplerTile");
             waterProg[i].samplerWaterUniform = gl.getUniformLocation(waterProg[i], "uSamplerWater");
             waterProg[i].samplerCausticUniform = gl.getUniformLocation(waterProg[i], "uSamplerCaustic");
-            waterProg[i].samplerObjUniform = gl.getUniformLocation(waterProg[i], " uSamplerObj");
+            waterProg[i].samplerReflectUniform = gl.getUniformLocation(waterProg[i], "uSamplerReflect");
             waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
             waterProg[i].nmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
             waterProg[i].progNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
@@ -411,7 +419,7 @@
         objectProg.oldCenterUniform = gl.getUniformLocation(objectProg,"uOldCenter");
         objectProg.radiusUniform = gl.getUniformLocation(objectProg,"uRadius");
 
-        //---------------------obj shadow map---------------------------------------------------
+        //---------------------obj depth map---------------------------------------------------
         depthProg = gl.createProgram();
         gl.attachShader(depthProg, getShader(gl, "depth-vs") );
         gl.attachShader(depthProg, getShader(gl, "depth-fs") );
@@ -419,14 +427,16 @@
 
 
         if (!gl.getProgramParameter(depthProg, gl.LINK_STATUS)) {
-            alert("Could not initialize shadow shader.");
+            alert("Could not initialize depth shader.");
         }
         gl.useProgram(depthProg);
 
         depthProg.vertexPositionAttribute = gl.getAttribLocation(depthProg, "aVertexPosition");
+        depthProg.vertexNormalAttribute = gl.getAttribLocation(depthProg, "aVertexNormal");
         depthProg.pMatrixUniform = gl.getUniformLocation(depthProg, "uPMatrix");
         depthProg.mvMatrixUniform = gl.getUniformLocation(depthProg, "uMVMatrix");
         depthProg.centerUniform = gl.getUniformLocation(depthProg, "uCenter");
+        depthProg.modeUniform = gl.getUniformLocation(depthProg, "uMode");
 
 
         //---------------------perlin noise for wind------------------------------------------------
@@ -476,6 +486,7 @@
         quadProg.vertexPositionAttribute = gl.getAttribLocation(quadProg, "aVertexPosition");
         quadProg.samplerDepthUniform = gl.getUniformLocation(quadProg, "uSamplerDepth");
         quadProg.textureCoordAttribute = gl.getAttribLocation(quadProg, "aTextureCoord");
+        quadProg.modeUniform = gl.getUniformLocation(quadProg, "uMode");
         
         //----------------------god rays----------------------------------------------
         godrayProg = gl.createProgram();
@@ -508,9 +519,11 @@
         }
         gl.useProgram(reflectProg);
 
-        reflectProg.vertexPositionAttribute = gl.getAttribLocation(reflectProg, "aVertexPosition");
+         reflectProg.vertexPositionAttribute = gl.getAttribLocation(reflectProg, "aVertexPosition");
+        //reflectProg.vertexNormalAttribute = gl.getAttribLocation(reflectProg, "aVertexNormal");
         reflectProg.mvMatrixUniform = gl.getUniformLocation(reflectProg, "uMVMatrix");
-        reflectProg.pMatrixUniform = gl.getUniformLocation(reflectProg, "uPMatrix");
+        // reflectProg.pMatrixUniform = gl.getUniformLocation(reflectProg, "uPMatrix");
+        // reflectProg.centerUniform = gl.getUniformLocation(reflectProg, "uCenter");
     }
 
     function checkCanDrawToTexture(texture){
@@ -899,17 +912,41 @@ function drawScene() {
         initTexture(pool.Texture, "tile/tile5.jpg");
         currentPoolPattern = "golden tile";
     }
-
-    drawDepth(colorTexture,depthTexture, 0);   //depth from light
-    drawDepth(colorTexture2, depthTexture2, 1);   //depth from camera
+    if(isSphere == 0){
+        var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
+        lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
+        mat4.identity(lightMatrix);
+        mat4.multiply(lightMatrix, lightView);
+        drawDepth(colorTexture,depthTexture, lightMatrix, lightProj, false);   //depth from light
+        initTracer();
+        var ray = vec3.create();
+        var inverseCenter = vec3.create(sphere.center);
+        vec3.negate(inverseCenter);
+        ray = vec3.subtract(inverseCenter, tracer.eye);
+        vec3.normalize(ray);
+        var scale = -tracer.eye[1] / ray[1];
+       // var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
+       var point = vec3.create([sphere.center[0], 0, sphere.center[2]]);
+       var upVector = vec3.create();
+       reflectProj = mat4.ortho(-2,2,-2,2,-4,4); 
+       upVector = vec3.subtract(point, tracer.eye);
+       vec3.normalize(upVector);
+      //  if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {  //water plane
+            var reflectView = mat4.lookAt(point, sphere.center, upVector);
+            mat4.identity(reflectModelView);
+            mat4.multiply(reflectModelView, reflectView);
+            drawDepth(colorTexture3, depthTexture3, reflectModelView, reflectProj, true, 1);    //color from the point of reflections
+      // }
+    }
+    drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, false);   //depth from camera
     drawGodrayPass1();
     //drawGodrayPass2();
     //drawGodrayPass3();
     drawPool();
     drawSkyBox();
+    drawWater();
     if(isSphere == 1) drawObj(sphere);
     else drawObj(objModel);
-    drawWater();
      
     drawNormal();
     drawSimulation();
@@ -923,31 +960,45 @@ function drawScene() {
        drawWind();
     }
     
-    if(parameters.Rain == true && rainCounter % 50==0){
-        for (var i = 0; i < 20; i++) {
-            var x = Math.random() * 2 - 1;
-            var y = Math.random() * 2 - 1;
-            drawHeight(x,y, 0.01, (i & 1) ? 0.01 : -0.01);
-         }
+    if(parameters.Rain == true ){
+        if(rainCounter % 30==0){
+            var num = Math.random()*15 + 5;  //[5, 20]
+            for (var i = 0; i < num; i++) {
+                var x = Math.random() * 2 - 1;
+                var y = Math.random() * 2 - 1;
+                var radius = Math.random() * 0.02 + 0.01; //[0.01,0.03]
+                var strength = Math.random() * 0.04 - 0.01;  //[-0.01, 0.04]
+                drawHeight(x,y, radius, strength);
+             }
+        }
+         rainCounter ++;
+        // var viewProjection = g_math.mulMatrixMatrix4(g_view, g_projection);
+        // var viewInverse = g_math.inverse4(g_view);
+        // //g_particleSystem.draw(viewProjection, g_world, viewInverse);
+        // drawRain();
     }
-    rainCounter ++;
-    // var viewProjection = g_math.mulMatrixMatrix4(g_view, g_projection);
-    // var viewInverse = g_math.inverse4(g_view);
-    // //g_particleSystem.draw(viewProjection, g_world, viewInverse);
+    else{
+        rainCounter = 0;
+    }
+    
     if(parameters.Depth_From_Light == true){
-        drawQuad(godrayTextureA);   //this is the debug draw ctmp for depth texture
+        drawQuad(godrayTextureA, 0);   //this is the debug draw ctmp for depth texture
         //drawGodrayPass1();
     }
     else if(parameters.Depth_From_Camera == true){
-        drawQuad(depthTexture2);
+        drawQuad(depthTexture2, 0);
+    }
+    else if(parameters.Reflection_Texture == true){
+       // drawQuad(reflectTexture, 1);
+       drawQuad(colorTexture3, 1);
     }
 }
 
-function drawQuad(texture){
+function drawQuad(texture, mode){
   //  gl.viewport(0, 0, textureSize1, textureSize1);
      gl.useProgram(quadProg);
 
-     gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
     gl.vertexAttribPointer(quadProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(quadProg.vertexPositionAttribute);
 
@@ -959,6 +1010,8 @@ function drawQuad(texture){
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(quadProg.samplerDepthUniform, 0);
 
+    gl.uniform1i(quadProg.modeUniform, mode);
+
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
     gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
@@ -969,7 +1022,7 @@ function drawQuad(texture){
 }
 
 function drawPool(){
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.useProgram(poolProg);
 
@@ -1028,9 +1081,6 @@ function drawPool(){
 function drawSkyBox() {
 
     if (sky.Texture){
-       // console.log("drawing sky box", sky.IBO.numItems);
-      
-     //gl.enable(gl.DEPTH_TEST);
         gl.useProgram(skyProg);
       
 
@@ -1055,7 +1105,6 @@ function drawSkyBox() {
 
 
 function drawObj(model){
-
          gl.useProgram(objProg);
 
         if(model == sphere){
@@ -1070,7 +1119,7 @@ function drawObj(model){
             setMatrixUniforms(objProg);
           // console.log("center is "+ vec3.str(model.center));
            //console.log("radius is " + model.radius);
-            gl.uniform3fv(objProg.CenterUniform, model.center);
+            gl.uniform3fv(objProg.centerUniform, model.center);
             //gl.uniform1f(objProg.RadiusUniform, model.radius);
             gl.uniform3fv(objProg.sphereCenterUniform, sphere.center);
             gl.uniform1f(objProg.sphereRadiusUniform, sphere.radius);
@@ -1105,7 +1154,7 @@ function drawObj(model){
                     setMatrixUniforms(objProg);
                   // console.log("center is "+ vec3.str(model.center));
                    //console.log("radius is " + model.radius);
-                    gl.uniform3fv(objProg.CenterUniform, sphere.center);
+                    gl.uniform3fv(objProg.centerUniform, sphere.center);
                     //gl.uniform1f(objProg.RadiusUniform, model.radius);
                     gl.uniform1i(objProg.isSphereUniform, 0);
 
@@ -1149,6 +1198,8 @@ function drawWater(){
             gl.enableVertexAttribArray(waterProg[i].vertexNormalAttribute);
 
             setMatrixUniforms(waterProg[i]);
+            gl.uniformMatrix4fv(waterProg[i].rmvMatrixUniform, false,  reflectModelView);
+            gl.uniformMatrix4fv(waterProg[i].rpMatrixUniform, false, reflectProj);
             gl.uniformMatrix4fv(waterProg[i].nmlMatrixUniform, false, nmlMatrix);
             gl.uniform1i(waterProg[i].progNumUniform, i);
 
@@ -1173,8 +1224,8 @@ function drawWater(){
             gl.uniform1i(waterProg[i].samplerCausticUniform,3);
 
             gl.activeTexture(gl.TEXTURE4);
-            gl.bindTexture(gl.TEXTURE_2D, objTexture);
-            gl.uniform1i(waterProg[i].samplerObjUniform,4);
+            gl.bindTexture(gl.TEXTURE_2D, colorTexture3);
+            gl.uniform1i(waterProg[i].samplerReflectUniform,4);
             
             gl.uniform1f(waterProg[i].causticOnUniform, u_CausticOnLocation);
             gl.uniform1i(waterProg[i].isSphereUniform, isSphere);
@@ -1399,48 +1450,44 @@ function drawInteraction(){
 
 }
 
-function drawDepth(colTexture, depTexture, mode){   //draw depth from light source
+function drawDepth(colTexture, depTexture, modelView, proj, renderColor, mode){   //draw depth from light source
+    mode = mode || 0;
     initDepthFrameBuffer(colTexture, depTexture, gl.viewportWidth, gl.viewportHeight);
 
-    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
-    gl.colorMask(false, false, false, false);  //disable writing to color
+    gl.colorMask(renderColor, renderColor, renderColor, renderColor);  //disable writing to color
     gl.useProgram(depthProg);
 
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
+    gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, proj);
+    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, modelView); 
 
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-  //  mat4.inverse(lightMatrix);
-    if(mode == 0){
-      
-        gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
-        gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix); 
-    }
-    else if(mode ==1){
-         gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
-         gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix); 
-    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
     gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.NBO);
+    gl.vertexAttribPointer(depthProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(depthProg.vertexNormalAttribute);
         
     gl.uniform3fv(depthProg.centerUniform, sphere.center);
+    gl.uniform1i(depthProg.modeUniform, mode);
+
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, depthModel.IBO);
     gl.drawElements(gl.TRIANGLES,depthModel.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
 
      //-------------- after rendering---------------------------------------------------
     gl.disableVertexAttribArray(depthProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(depthProg.vertexNormalAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     gl.colorMask(true, true, true, true); 
 
     // reset viewport
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.disable(gl.DEPTH_TEST);
+   // gl.disable(gl.DEPTH_TEST);
     
 }
 
@@ -1608,6 +1655,43 @@ function drawGodrayPass3(){
    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 }
 
+function drawReflect(model){
+   // console.log("drawing reflection");
+    initColorFrameBuffer(reflectTexture, textureSize, textureSize);
+   // gl.viewport(0, 0, textureSize, textureSize);
+    gl.useProgram(godrayProg);
+   // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.useProgram(reflectProg);
+
+    for(var i = 0; i < model.numGroups(); i++) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.VBO(i));
+        gl.vertexAttribPointer(reflectProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(reflectProg.vertexPositionAttribute);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.NBO(i));
+        gl.vertexAttribPointer(reflectProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(reflectProg.vertexNormalAttribute);
+
+        setMatrixUniforms(reflectProg);
+        gl.uniform3fv(reflectProg.centerUniform, sphere.center);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,model.IBO(i));
+        gl.drawElements(gl.TRIANGLES, model.numIndices(i), gl.UNSIGNED_SHORT, 0);
+    }
+
+    gl.disableVertexAttribArray(reflectProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(reflectProg.vertexNormalAttribute);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+    // reset viewport
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+   // gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    //gl.disable(gl.DEPTH_TEST);
+
+}
 
 function pseudoRandom() {
     var g_randSeed = 0;
@@ -1663,7 +1747,7 @@ function initColorFrameBuffer(texture, width, height){   // rendering to a textu
     if (width!= renderbuffer.width ||height!= renderbuffer.height) {
       renderbuffer.width = width;
       renderbuffer.height = height;
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+     // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
     }
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
@@ -1689,7 +1773,6 @@ function initDepthFrameBuffer(coltexture, deptexture, width, height){   // rende
     //   renderbuffer1.height = height;
     //   gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
     // }
-    
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, coltexture, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, deptexture, 0);
@@ -1801,11 +1884,13 @@ function webGLStart() {
    colorTexture = gl.createTexture();
    depthTexture2 = gl.createTexture();
    colorTexture2 = gl.createTexture();
+   depthTexture3 = gl.createTexture();
+   colorTexture3 = gl.createTexture();
    permTexture = gl.createTexture();
    gradTexture = gl.createTexture();
    godrayTextureA = gl.createTexture();
    godrayTextureB = gl.createTexture();
-   objTexture = gl.createTexture();
+   reflectTexture = gl.createTexture();
 
   var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
@@ -1815,7 +1900,9 @@ function webGLStart() {
   initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight); 
   initCustomeTexture(depthTexture2, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
   initCustomeTexture(colorTexture2, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);   
-  initCustomeTexture(objTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize, textureSize);
+  initCustomeTexture(depthTexture3, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
+  initCustomeTexture(colorTexture3, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);  
+  initCustomeTexture(reflectTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
 
 
   initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
