@@ -32,6 +32,14 @@ Here we simplify the computation process by making some assumptions:
 
 for each point we calculate two refract rays, one is using vertical normal and the other is using the real normal. And we get the caustic value by compare the two refract rays, Then write the caustic value to the caustic map.
 
+* **Obj Interaction**   
+* **God Ray**  
+
+* **Wind**   
+Use Perlin noise as a noise texture to change water height based on noise.  
+
+* **Rain**  
+Pseudo random mouse click.  
 
 WATER SIMULATION
 -------------------------------------------------------------------------------
@@ -85,6 +93,9 @@ This can be turn on under GUI `debug image` under `draw_obj_reflect`. The idea i
 to render a reflection texture from the point of view of reflection point, and use this texture for shading the water.  
 Now the reflection and refraction positions are not right, to be fixed in the future.    
 ![ObjReflection](/pics/objReflection.png)  
+
+
+ 
 
 PERFORMANCE EVALUATION   
 -------------------------------------------------------------------------------
