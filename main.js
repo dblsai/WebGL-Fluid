@@ -123,6 +123,7 @@
 
     var permTexture;
     var gradTexture;
+    var objTexture;
 
     //user input
     var u_CausticOnLocation;
@@ -316,12 +317,14 @@
             waterProg[i].samplerTileUniform = gl.getUniformLocation(waterProg[i], "uSamplerTile");
             waterProg[i].samplerWaterUniform = gl.getUniformLocation(waterProg[i], "uSamplerWater");
             waterProg[i].samplerCausticUniform = gl.getUniformLocation(waterProg[i], "uSamplerCaustic");
+            waterProg[i].samplerObjUniform = gl.getUniformLocation(waterProg[i], " uSamplerObj");
             waterProg[i].eyePositionUniform = gl.getUniformLocation(waterProg[i],"uEyePosition");
             waterProg[i].nmlMatrixUniform = gl.getUniformLocation(waterProg[i], "uNmlMatrix");
             waterProg[i].progNumUniform = gl.getUniformLocation(waterProg[i], "uProgNum");
             waterProg[i].sphereCenterUniform = gl.getUniformLocation(waterProg[i], "uSphereCenter");
             waterProg[i].sphereRadiusUniform = gl.getUniformLocation(waterProg[i], "uSphereRadius");
             waterProg[i].causticOnUniform = gl.getUniformLocation(waterProg[i], "uCausticOn");
+            waterProg[i].isSphereUniform = gl.getUniformLocation(waterProg[i], "uIsSphere");
         }
 
         //-----------------------height------------------------------------------------
@@ -491,6 +494,21 @@
         godrayProg.lightMatrixUniform = gl.getUniformLocation(godrayProg, "uLightMatrix");
         godrayProg.samplerInputUniform = gl.getUniformLocation(godrayProg, "uSamplerInput");
         godrayProg.passUniform = gl.getUniformLocation(godrayProg, "uPass");
+
+        //----------------------obj reflection---------------------------------------------
+        reflectProg = gl.createProgram();
+        gl.attachShader(reflectProg, getShader(gl, "reflect-vs") );
+        gl.attachShader(reflectProg, getShader(gl, "reflect-fs") );
+        gl.linkProgram(reflectProg);
+
+        if (!gl.getProgramParameter(reflectProg, gl.LINK_STATUS)) {
+            alert("Could not initialize reflect shader.");
+        }
+        gl.useProgram(reflectProg);
+
+        reflectProg.vertexPositionAttribute = gl.getAttribLocation(reflectProg, "aVertexPosition");
+        reflectProg.mvMatrixUniform = gl.getUniformLocation(reflectProg, "uMVMatrix");
+        reflectProg.pMatrixUniform = gl.getUniformLocation(reflectProg, "uPMatrix");
     }
 
     function checkCanDrawToTexture(texture){
@@ -1150,8 +1168,13 @@ function drawWater(){
             gl.activeTexture(gl.TEXTURE3);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
             gl.uniform1i(waterProg[i].samplerCausticUniform,3);
+
+            gl.activeTexture(gl.TEXTURE4);
+            gl.bindTexture(gl.TEXTURE_2D, objTexture);
+            gl.uniform1i(waterProg[i].samplerObjUniform,4);
             
             gl.uniform1f(waterProg[i].causticOnUniform, u_CausticOnLocation);
+            gl.uniform1i(waterProg[i].isSphereUniform, isSphere);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
             gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1763,6 +1786,7 @@ function webGLStart() {
    gradTexture = gl.createTexture();
    godrayTextureA = gl.createTexture();
    godrayTextureB = gl.createTexture();
+   objTexture = gl.createTexture();
 
   var filter = OES_texture_float_linear? gl.LINEAR : gl.NEAREST;
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
@@ -1772,7 +1796,7 @@ function webGLStart() {
   initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight); 
   initCustomeTexture(depthTexture2, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
   initCustomeTexture(colorTexture2, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);   
-  
+  initCustomeTexture(objTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize, textureSize);
 
 
   initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
