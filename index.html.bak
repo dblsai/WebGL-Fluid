@@ -61,7 +61,6 @@
    uniform float uSphereRadius;
    uniform float uCausticOn;
    uniform int uIsSphere;
-
     float waterHeight = 0.0;
     vec3 lightPos = vec3(0.0,2.0,-2.0);
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
@@ -118,6 +117,38 @@
   float linearizeDepth( float exp_depth, float near, float far ){
       return ( 2.0 * near ) / ( far + near - exp_depth * ( far - near ) );
   }
+  float getObjShadow(vec3 position, vec3 normal){
+        float texelSize = 1.0 / 512.0;
+        vec3 c = vec3(0.0);
+        float depth = 0.0;
+        vec2 coord = position.xy;
+        if(normal.z > 0.999){   //front wall
+            coord.y = 1.0- coord.y;
+        }else if(normal.x > 0.999){  //right wall
+            coord.y = 1.0- coord.y;
+        }
+        
+        int count = 0;
+        for (int y = -1; y <= 1; ++y){
+          for (int x = -1; x <= 1; ++x){
+              vec2 offset = coord + vec2(float(x) * texelSize, float(y) * texelSize);
+  
+              depth = texture2D(uSamplerDepth, offset).r;
+              depth = linearizeDepth(depth, 1.0, 20.0);
+      
+              if ( position.z > depth ){   //part of shadow
+                c += vec3(0.1, 0.1, 0.1);
+               //color = vec3(1.0, 0.0, 0.0);
+              }
+              ++count;
+            }
+        }
+        // if ( count > 0 )
+        //   c *= float(count) *0.1;
+        float shadow = (1.0 - length(c));
+        shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
+        return shadow *1.4;
+  }
     void main(void) {
         vec3 lightDir = normalize(vVertexPosition-lightPos);
         //float diffuseTerm = clamp(dot(normalize(lightDir), normalize(vVertexNormal) ), 0.0, 1.0);
@@ -135,35 +166,36 @@
       // float dep = texture2D(uSamplerDepth, vVertexPosition.xz * 0.5 + 0.5).r;
       // dep = linearizeDepth( dep, 1.0, 10.0);
       //  color += vec3(1.0-dep,1.0-dep,1.0-dep);
-
-        if(vVertexNormal.y<-0.999 && uIsSphere == 0){
-          vec3 position = vDepthPosition;
-          float texelSize = 1.0 / 512.0;
-          vec3 c = vec3(0.0);
-          float depth = 0.0;
-
-          int count = 0;
-          for (int y = -1; y <= 1; ++y){
-            for (int x = -1; x <= 1; ++x){
-              vec2 offset = position.xy + vec2(float(x) * texelSize, float(y) * texelSize);
+      if(uIsSphere == 0){
+        color *= getObjShadow(vDepthPosition, vVertexNormal);
+      }
+        // if(vVertexNormal.y<-0.999 && uIsSphere == 0){
+        //   vec3 position = vDepthPosition;
+        //   float texelSize = 1.0 / 512.0;
+        //   vec3 c = vec3(0.0);
+        //   float depth = 0.0;
+        //   int count = 0;
+        //   for (int y = -1; y <= 1; ++y){
+        //     for (int x = -1; x <= 1; ++x){
+        //       vec2 offset = position.xy + vec2(float(x) * texelSize, float(y) * texelSize);
     
-                depth = texture2D(uSamplerDepth, offset).r;
-                depth = linearizeDepth(depth, 1.0, 20.0);
+        //         depth = texture2D(uSamplerDepth, offset).r;
+        //         depth = linearizeDepth(depth, 1.0, 20.0);
         
-                if ( position.z > depth ){   //part of shadow
-                  c += vec3(0.1, 0.1, 0.1);
-                 //color = vec3(1.0, 0.0, 0.0);
-                }
-                ++count;
-              }
-          }
-          // if ( count > 0 )
-          //   c *= float(count) *0.1;
-          float shadow = (1.0 - length(c));
-          shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
-          color *= shadow *1.4;
+        //         if ( position.z > depth ){   //part of shadow
+        //           c += vec3(0.1, 0.1, 0.1);
+        //          //color = vec3(1.0, 0.0, 0.0);
+        //         }
+        //         ++count;
+        //       }
+        //   }
+        //   // if ( count > 0 )
+        //   //   c *= float(count) *0.1;
+        //   float shadow = (1.0 - length(c));
+        //   shadow = clamp(1.0 / (1.0 + exp(-shadow)), 0.0, 1.0);
+        //   color *= shadow *1.4;
           
-        }
+        // }
         //color += 0.25* vec3(texture2D(uSamplerGodray, vVertexPosition.xz * 0.5 + 0.5).r);
        gl_FragColor = vec4(color, 1.0);
     }
@@ -202,7 +234,7 @@
   return ( 2.0 * near ) / ( far + near - exp_depth * ( far - near ) );
 }
     void main(void){
-        float filterLen = 2.0;
+        float filterLen = 1.0;
         float stepSize = filterLen * pow(TAPS_PER_PASS, -uPass);
         
         float dist = length( delta );
@@ -355,8 +387,12 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uNmlMatrix;  //for normal transformations
+    uniform mat4 uReflectpMatrix;
+    uniform mat4 uReflectmvMatrix;
     uniform sampler2D uSamplerWater;  //height texture: [position.y, normal.x, normal.z, velocity.y]
     varying vec3 vVertexPosition;
+    varying vec3 vReflectPosition;
+    const mat4 ScaleMatrix = mat4(0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.5, 0.5, 0.5, 1.0);
     //varying vec3 vVertexNormal;
     void main(void) {
         vec4 data = texture2D(uSamplerWater, aVertexPosition.xy * 0.5 + 0.5);
@@ -367,6 +403,7 @@
         vVertexPosition.y += data.x;   //retrieve height
         vVertexPosition.y += data.r;   //retrieve height
         gl_Position = uPMatrix * uMVMatrix * vec4(vVertexPosition, 1.0);
+        vReflectPosition = (ScaleMatrix * uReflectpMatrix* uReflectmvMatrix * vec4(vVertexPosition, 1.0)).xyz;
     }
 </script>
 
@@ -376,13 +413,15 @@
     uniform samplerCube uSamplerSky;   //top water reflects skybox
     uniform sampler2D uSamplerWater; 
     uniform sampler2D uSamplerCaustic;
-     
+    uniform sampler2D uSamplerReflect;   //contains obj render for reflection
     uniform vec3 uEyePosition;
     uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
+    uniform int uIsSphere;
     uniform float uSphereRadius;
     uniform vec3 uSphereCenter;
     uniform float uCausticOn;
     varying vec3 vVertexPosition;
+     varying vec3 vReflectPosition;
    // varying vec3 vVertexNormal;
     float waterHeight = 0.0;
     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
@@ -489,8 +528,8 @@
     vec3 getRayColor(vec3 origin, vec3 ray, vec3 waterColor) {
         vec3 color;
         float q = intersectSphere(origin, ray, uSphereCenter, uSphereRadius);
-        if (q < 1.0e6) {
-          color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
+        if (q < 1.0e6 && uIsSphere == 1) {
+            color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
         } else if (ray.y < 0.0) {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           color = getWallColor(origin + ray * t.y);
@@ -523,8 +562,11 @@
           float fresnel = mix(0.25, 1.0, pow(1.0 - dot(normal, -eyeDir), 3.0)); 
           vec3 refraColor = getRayColor(vVertexPosition, refractDir, underwaterColor);
           vec3 refleColor = getRayColor(vVertexPosition, reflectDir, underwaterColor);
+          vec3 ref = texture2D(uSamplerReflect, vReflectPosition.xy).rgb;
+          if(length(ref)>0.0){
+              refleColor += ref;
+          }
           gl_FragColor = vec4(mix(refleColor, refraColor, fresnel), 1.0);
-        
         }else if(uProgNum == 1){  //below water
           normal = -normal;
           vec3 reflectDir = reflect(eyeDir,normal);
@@ -736,22 +778,45 @@
 
  <script id="depth-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform vec3 uCenter;
+    uniform int uMode;
+    varying vec3 vVertexNormal;
+    varying vec3 vVertexPosition;
     void main (void){
+
       vec3 position = aVertexPosition + uCenter;
-      gl_Position = uPMatrix * uMVMatrix * vec4(position, 1.0);
+      if(uMode == 0){
+        gl_Position = uPMatrix * uMVMatrix * vec4(position, 1.0);
+        vVertexNormal = aVertexNormal;
+        vVertexPosition = gl_Position.xyz;
+      }
+      else if(uMode == 1){
+       // position.y *= -1.0;
+        gl_Position = uPMatrix * uMVMatrix * vec4(position, 1.0);
+        vVertexNormal = aVertexNormal;
+        //vVertexNormal.y *= -1.0;
+        vVertexPosition = gl_Position.xyz;
+      }
     }
 </script>
 
 
 <script id="depth-fs" type="x-shader/x-fragment">
     precision highp float;
-   
+    varying vec3 vVertexNormal;
+    varying vec3 vVertexPosition;
+     vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
     void main (void)
     {
-      gl_FragColor = vec4(0.5,1.0,0.0,1.0);
+      //gl_FragColor = vec4(0.5,0.0,1.0,1.0);
+      //if(vVertexPosition.y < 0.0){
+        vec3 color = vec3(1.0, 1.0, 0.0);
+        color *= clamp(dot(lightDir, vVertexNormal), 0.20,1.0);
+        gl_FragColor = vec4(color, 1.0);
+      //}
     }
 </script>
 
@@ -769,18 +834,31 @@
 <script id="quad-fs" type="x-shader/x-fragment">
     precision highp float;
     uniform sampler2D uSamplerDepth;
+    uniform int uMode;
     varying vec2 vCoord;
     float linearizeDepth( float exp_depth, float near, float far ){
   return ( 2.0 * near ) / ( far + near - exp_depth * ( far - near ) );
 }
     void main (void)
     {
+
       float depth = texture2D( uSamplerDepth, vCoord).x;
       //depth = linearizeDepth( depth, 0.5, 5.0 );
       //depth = vCoord.x;
-      gl_FragColor = vec4(vec3(depth),1.0);
+      gl_FragColor = vec4(texture2D( uSamplerDepth, vCoord).xyz,1.0);
       //gl_FragColor = vec4(vec3(vCoord.x), 1.0)
        //pack(gl_FragCoord.z);
+
+      // if(uMode == 0 ){  //depth
+      //      float depth = texture2D( uSamplerDepth, vCoord).x;
+      //      depth = linearizeDepth( depth, 0.5, 5.0 );
+      //      gl_FragColor = vec4(vec3(depth),1.0);
+      // }else if(uMode == 1){   //color
+           vec3 color = texture2D( uSamplerDepth, vCoord).rgb;
+           gl_FragColor = vec4(color,1.0);
+      //}
+  
+
     }
 </script>
 
@@ -914,9 +992,54 @@
     }
 </script>
 
+<script id="reflect-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+ //   attribute vec3 aVertexNormal;
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    // uniform vec3 uCenter;
+    // varying vec3 vVertexNormal;
+    void main(void) {
+      // vec3 position = aVertexPosition + uCenter;
+      // gl_Position = uPMatrix * uMVMatrix * vec4(position, 1.0);
+      // vVertexNormal = aVertexNormal;
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+        
+</script>
 
+<script id="reflect-fs" type="x-shader/x-fragment">
+    precision highp float;
+    // varying vec3 vVertexNormal;
+    vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
+    void main(void) {
+        // vec3 color = vec3(1.0, 1.0, 0.0);
+        // color *= clamp(dot(lightDir, vVertexNormal), 0.20,1.0);
+        // gl_FragColor = vec4(color, 1.0);
+        gl_FragColor = vec4(1.0, 0.0, 0.0,1.0);
+    }
+</script>
     
-
+<script id="postprocess-fs" type="x-shader/x-fragment">
+    precision highp float;
+    uniform sampler2D uSamplerGodray;
+    uniform sampler2D uSamplerColor;
+    varying vec2 vCoord;
+    float linearizeDepth( float exp_depth, float near, float far ){
+  return ( 2.0 * near ) / ( far + near - exp_depth * ( far - near ) );
+}
+    void main (void)
+    {
+      
+      //depth = linearizeDepth( depth, 0.5, 5.0 );
+      //depth = vCoord.x;
+      vec4 godrayColor = vec4(0.0);
+      if((texture2D(uSamplerGodray, vCoord).r) > 0.5) godrayColor = vec4( vec3(-0.15*texture2D(uSamplerGodray, vCoord).r), 0.0);
+      gl_FragColor = vec4(texture2D(uSamplerColor, vCoord).xyz, 1.0) - godrayColor;
+      //gl_FragColor = vec4(vec3(vCoord.x), 1.0)
+       //pack(gl_FragCoord.z);
+    }
+</script>
     
 </head> 
 
