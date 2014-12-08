@@ -203,17 +203,21 @@
 
     window.onload = function() {
         var gui = new dat.GUI();
+        //var gui = new dat.GUI({ autoPlace: false });
+       // var customContainer = document.getElementById('gui-container');
+       // customContainer.appendChild(gui.domElement);
         gui.add(parameters, 'Caustic');
         gui.add(parameters, 'Wind');
         gui.add(parameters, 'Rain');
-        gui.add(parameters, 'Object', [ 'sphere', 'mesh']);
+        gui.add(parameters, 'Object', [ 'sphere', 'duck']);
         gui.add(parameters, 'Pool_Pattern', ['white brick', 'marble', 'blue tile', 'golden tile']);
         gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
-        gui.add(parameters, 'Depth_From_Light');
-        gui.add(parameters, 'Depth_From_Camera');
         gui.add(parameters, 'God_rays');
-        
-        gui.add(parameters, 'Reflection_Texture');
+        var f1 = gui.addFolder('Debug Image');
+        f1.add(parameters, 'Depth_From_Light');
+        f1.add(parameters, 'Depth_From_Camera');
+        f1.add(parameters, 'Reflection_Texture');
+        f1.add(parameters, 'Draw_Obj_Reflection');
     };
 
     var parameters = new function(){
@@ -228,8 +232,7 @@
         this.Depth_From_Camera = false;
         this.God_rays = false;
         this.Reflection_Texture = false;
-
-            
+        this.Draw_Obj_Reflection = false;    
     }
 
 
@@ -345,6 +348,7 @@
             waterProg[i].sphereRadiusUniform = gl.getUniformLocation(waterProg[i], "uSphereRadius");
             waterProg[i].causticOnUniform = gl.getUniformLocation(waterProg[i], "uCausticOn");
             waterProg[i].isSphereUniform = gl.getUniformLocation(waterProg[i], "uIsSphere");
+            waterProg[i].drawObjReflectUniform = gl.getUniformLocation(waterProg[i], "uDrawObjReflect");
         }
 
         //-----------------------height------------------------------------------------
@@ -955,9 +959,10 @@ function drawScene() {
         initTracer();
         var ray = vec3.create();
         var cam = vec3.create(tracer.eye);
+        //cam.z = - cam.z;
         var inverseCenter = vec3.create(sphere.center);
         if(sphere.center[1] > 0.0){
-            inverseCenter[1] = 0.0 -inverseCenter[1];
+            inverseCenter[1] = -inverseCenter[1];
         }
         ray = vec3.subtract(inverseCenter, cam);
         vec3.normalize(ray);
@@ -1311,7 +1316,11 @@ function drawWater(){
             gl.uniform1i(waterProg[i].progNumUniform, i);
 
             gl.uniform3fv(waterProg[i].sphereCenterUniform, sphere.center);
-            gl.uniform1f(waterProg[i].sphereRadiusUniform, sphere.radius);
+            if(isSphere == 1){
+                gl.uniform1f(waterProg[i].sphereRadiusUniform, sphere.radius);
+            }else{
+                gl.uniform1f(waterProg[i].sphereRadiusUniform, 0.23);
+            }
 
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, sky.Texture);
@@ -1336,6 +1345,12 @@ function drawWater(){
             
             gl.uniform1f(waterProg[i].causticOnUniform, u_CausticOnLocation);
             gl.uniform1i(waterProg[i].isSphereUniform, isSphere);
+            if(parameters.Draw_Obj_Reflection  == true){
+                 gl.uniform1i(waterProg[i].drawObjReflectUniform, 1);
+            }else{
+                 gl.uniform1i(waterProg[i].drawObjReflectUniform, 0);
+            }
+           
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
             gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
