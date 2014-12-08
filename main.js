@@ -912,7 +912,7 @@ function drawScene() {
         initTexture(pool.Texture, "tile/tile5.jpg");
         currentPoolPattern = "golden tile";
     }
-    if(isSphere == 0){
+   // if(isSphere == 0){
         var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
         lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
         mat4.identity(lightMatrix);
@@ -920,24 +920,34 @@ function drawScene() {
         drawDepth(colorTexture,depthTexture, lightMatrix, lightProj, false);   //depth from light
         initTracer();
         var ray = vec3.create();
+        var cam = vec3.create(tracer.eye);
         var inverseCenter = vec3.create(sphere.center);
-        vec3.negate(inverseCenter);
-        ray = vec3.subtract(inverseCenter, tracer.eye);
+        if(sphere.center[1] > 0.0){
+            inverseCenter[1] = 0.0 -inverseCenter[1];
+        }
+        ray = vec3.subtract(inverseCenter, cam);
         vec3.normalize(ray);
-        var scale = -tracer.eye[1] / ray[1];
-       // var point = vec3.create([tracer.eye[0] + ray[0]*scale, tracer.eye[1] + ray[1]*scale, tracer.eye[2] + ray[2]*scale] );
-       var point = vec3.create([sphere.center[0], 0, sphere.center[2]]);
+        var scale = -cam[1] / ray[1];
+        var point = vec3.create([cam[0] + ray[0]*scale, cam[1] + ray[1]*scale, cam[2] + ray[2]*scale] );
+       //var point = vec3.create([sphere.center[0], 0, sphere.center[2]]);
        var upVector = vec3.create();
+       var forwardVector = vec3.create();
+       var rightVector = vec3.create();
+       forwardVector = vec3.subtract(vec3.create([0,0,0]), cam);
+       rightVector = vec3.cross(forwardVector, up);
        reflectProj = mat4.ortho(-2,2,-2,2,-4,4); 
-       upVector = vec3.subtract(point, tracer.eye);
+       var center = vec3.create(sphere.center);
+       forwardVector = vec3.subtract(center, point);
+      //upVector = vec3.cross(rightVector,forwardVector);
+        upVector = vec3.subtract(cam, point);
        vec3.normalize(upVector);
       //  if (Math.abs(point[0]) < 1 && Math.abs(point[2]) < 1) {  //water plane
-            var reflectView = mat4.lookAt(point, sphere.center, upVector);
+            var reflectView = mat4.lookAt(point, sphere.center, upVector);   //[eye, center, up]
             mat4.identity(reflectModelView);
             mat4.multiply(reflectModelView, reflectView);
             drawDepth(colorTexture3, depthTexture3, reflectModelView, reflectProj, true, 1);    //color from the point of reflections
       // }
-    }
+   // }
     drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, false);   //depth from camera
     drawGodrayPass1();
     drawGodrayPass2();
@@ -982,7 +992,8 @@ function drawScene() {
     }
     
     if(parameters.Depth_From_Light == true){
-        drawQuad(godrayTextureA, 0);   //this is the debug draw ctmp for depth texture
+        drawQuad(depthTexture,0)
+       // drawQuad(godrayTextureA, 0);   //this is the debug draw ctmp for depth texture
         //drawGodrayPass1();
     }
     else if(parameters.Depth_From_Camera == true){
@@ -996,7 +1007,7 @@ function drawScene() {
 
 function drawQuad(texture, mode){
      gl.useProgram(quadProg);
-     
+
     gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
     gl.vertexAttribPointer(quadProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(quadProg.vertexPositionAttribute);
