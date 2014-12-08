@@ -376,9 +376,10 @@
     uniform samplerCube uSamplerSky;   //top water reflects skybox
     uniform sampler2D uSamplerWater; 
     uniform sampler2D uSamplerCaustic;
-     
+    uniform sampler2D uSamplerObj;   //contains obj render for reflection
     uniform vec3 uEyePosition;
     uniform int uProgNum;   //there is two water program, one is plane upper face, other is plane lower face
+    uniform int uIsSphere;
     uniform float uSphereRadius;
     uniform vec3 uSphereCenter;
     uniform float uCausticOn;
@@ -490,7 +491,11 @@
         vec3 color;
         float q = intersectSphere(origin, ray, uSphereCenter, uSphereRadius);
         if (q < 1.0e6) {
-          color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
+          if(uIsSphere == 1){  //sphere
+            color = getSphereColor(origin + ray * q,  uSphereCenter, uSphereRadius);
+          }else{   //obj
+
+          }
         } else if (ray.y < 0.0) {
           vec2 t = intersectCube(origin, ray, vec3(-1.0, -poolHeight, -1.0), vec3(1.0, poolHeight, 1.0));
           color = getWallColor(origin + ray * t.y);
@@ -914,7 +919,30 @@
     }
 </script>
 
+<script id="reflect-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    varying vec3 vVertexNormal;
+    void main(void) {
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+      vVertexNormal = aVertexNormal;
+    }
+        
+</script>
 
+<script id="reflect-fs" type="x-shader/x-fragment">
+    precision highp float;
+     varying vec3 vVertexNormal;
+    vec3 lightDir = normalize(vec3(0.5,1.2,0.3));
+    void main(void) {
+
+        vec3 color = vec3(1.0, 1.0, 0.0);
+        color *= clamp(dot(lightDir, vVertexNormal), 0.20,1.0);
+        gl_FragColor = vec4(color, 1.0);
+    }
+</script>
     
 
     
