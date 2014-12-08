@@ -8,7 +8,7 @@ Please also ensure that you have below WebGL extensions, `OES_texture_float`, `O
 Recommendation is to use latest Firefox / Chrome running on GPU.
 
 [Live Demo](http://dblsai.github.io/WebGL-Fluid)     
-[Video Demo](https://www.youtube.com/watch?v=Wq27HIlzpmQ&feature=youtu.be) 
+[Video Demo](http://youtu.be/Lm06d5o5KRw) 
 
 FEATURES
 -------------------------------------------------------------------------------
@@ -77,16 +77,16 @@ Load the obj by Threejs obj loader, then shade it by diffuse BRDF.
 * **Obj Shadow**    
 This is done by a Shadow Map(depth texture) that is rendered a from the point of view of light. 
 Then in the shader, transform vertex into the light view space, determine shadow by the following rule
-`if(position.z > depth) ---> part of shadow`  
+`if(position.z > depth) ---> part of shadow`    
 ![ObjShadow](/pics/objShadow.png) 
 
 * **Obj Reflection & Refraction**  
 This can be turn on under GUI `debug image` under `draw_obj_reflect`. The idea is similar to shadow map, 
 to render a reflection texture from the point of view of reflection point, and use this texture for shading the water.  
-Now the reflection and refraction positions are not right, to be fixed in the future.  
-![ObjReflection](/pics/objReflection.png) 
+Now the reflection and refraction positions are not right, to be fixed in the future.    
+![ObjReflection](/pics/objReflection.png)  
 
-PERFORMANCE EVALUATION
+PERFORMANCE EVALUATION   
 -------------------------------------------------------------------------------
 
 ![Analysis](/pics/Analysis.png)
@@ -99,7 +99,7 @@ INTERACTION
 * Right Mouse Button - rotate  
 * Left Mouse Button - interact  
 * Middle Mouse Wheel - zoom  
-* GUI - change skybox, change object, add wind/rain effect
+* GUI - change skybox, change object, add wind/rain effect  
 
 
 REFERRENCES
