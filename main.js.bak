@@ -25,6 +25,7 @@
     var objectProg;
     var depthProg;
     var windProg;
+    var rainProg;
     var godrayProg;
     
     //rendering
@@ -41,7 +42,6 @@
     var mvMatrixStack = [];
     var pMatrix = mat4.create();
     var nmlMatrix = mat4.create();
-    var lightMatrix = mat4.create();   //matrix for light
     var eyePos;
     var radius = 4.0;
     var azimuth = 0.5*Math.PI;
@@ -62,7 +62,7 @@
 
     // animating 
     var accumTime = 0;
-    var isWindy = true;
+
 
     //mouse interaction
     var time = 0;
@@ -86,9 +86,13 @@
     var objModel;    //processed gl object data for obj
     var depthModel = {};   //put tmp necessary vbo, ibo info into this object, for drawing depth
 
-    var depthTexture;
-    var colorTexture;
-    var lightInvDir = vec3.normalize(vec3.create([0.5,1.0,0.3]));
+    var depthTexture;    //for light-based depth rendering
+    var colorTexture;     //for light-based depth rendering
+    var depthTexture2;   //for camera-based depth rendering
+    var colorTexture2;   //for camera-based depth rendering
+    var lightInvDir = vec3.normalize(vec3.create([0.5,1.2,0.3]));
+    var lightMatrix = mat4.create();   //model view matrix for light
+    var lightProj = mat4.create();   //projection matrix for light
 
     var perm  = [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
                 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
@@ -125,6 +129,8 @@
     var isSphere;
     var sphereRadius;
     var currentPoolPattern;
+
+    var rainCounter = 0;
 
     function sphericalToCartesian( r, a, e ) {
         var x = r * Math.cos(e) * Math.cos(a);
@@ -186,10 +192,13 @@
         var gui = new dat.GUI();
         gui.add(parameters, 'Caustic');
         gui.add(parameters, 'Wind');
+        gui.add(parameters, 'Rain');
         gui.add(parameters, 'Object', [ 'sphere', 'mesh']);
         gui.add(parameters, 'Pool_Pattern', ['white brick', 'marble', 'blue tile', 'golden tile']);
         gui.add(parameters, 'Sphere_Radius', 0.1, 0.5); 
         gui.add(parameters, 'Depth_From_Light');
+        gui.add(parameters, 'Depth_From_Camera');
+        
     };
 
     var parameters = new function(){
@@ -199,7 +208,10 @@
         this.Pool_Pattern = "white brick";
         this.Sphere_Radius = 0.25;        
         this.Wind = true;
+        this.Rain = false;
         this.Depth_From_Light = false;
+        this.Depth_From_Camera = false;
+            
     }
 
 
@@ -223,6 +235,7 @@
         poolProg.mvMatrixUniform = gl.getUniformLocation(poolProg, "uMVMatrix");
         poolProg.nmlMatrixUniform = gl.getUniformLocation(poolProg, "uNmlMatrix");
         poolProg.lightMatrixUniform = gl.getUniformLocation(poolProg, "uLightMatrix");
+        poolProg.lightProjUniform = gl.getUniformLocation(poolProg, "uLightProj");
         poolProg.samplerTileUniform = gl.getUniformLocation(poolProg, "uSamplerTile");
         poolProg.samplerWaterUniform = gl.getUniformLocation(poolProg, "uSamplerWater");
         poolProg.samplerCausticUniform = gl.getUniformLocation(poolProg, "uSamplerCaustic");
@@ -230,6 +243,7 @@
         poolProg.sphereRadiusUniform = gl.getUniformLocation(poolProg, "uSphereRadius");
         poolProg.sphereCenterUniform = gl.getUniformLocation(poolProg, "uSphereCenter");
         poolProg.causticOnUniform = gl.getUniformLocation(poolProg, "uCausticOn");
+        poolProg.isSphereUniform = gl.getUniformLocation(poolProg, "uIsSphere");
 
 
 
@@ -324,6 +338,8 @@
         heightProg.vertexPositionAttribute = gl.getAttribLocation(heightProg, "aVertexPosition");
         heightProg.samplerWaterUniform = gl.getUniformLocation(heightProg, "uSamplerWater");
         heightProg.centerUniform = gl.getUniformLocation(heightProg,"uCenter");
+        heightProg.radiusUniform = gl.getUniformLocation(heightProg,"uRadius");
+        heightProg.strengthUniform = gl.getUniformLocation(heightProg,"uStrength");
 
         //-----------------------caustic------------------------------------------------
         causticProg = gl.createProgram();
@@ -337,10 +353,13 @@
         gl.useProgram(causticProg);
 
         causticProg.samplerWaterUniform = gl.getUniformLocation(causticProg, "uSamplerWater");
+        causticProg.isSphereUniform = gl.getUniformLocation(causticProg, "uIsSphere");
         causticProg.vertexPositionAttribute = gl.getAttribLocation(causticProg, "aVertexPosition");
         causticProg.OESderivativesUniform = gl.getUniformLocation(causticProg,"OES_standard_derivatives");
         causticProg.sphereRadiusUniform = gl.getUniformLocation(causticProg, "uSphereRadius");
         causticProg.sphereCenterUniform = gl.getUniformLocation(causticProg, "uSphereCenter");
+        causticProg.lightMatrixUniform = gl.getUniformLocation(causticProg, "uLightMatrix");
+        causticProg.lightProjUniform = gl.getUniformLocation(causticProg, "uLightProj");
 
          //-----------------------normal------------------------------------------------
         normalProg = gl.createProgram();
@@ -425,23 +444,20 @@
         windProg.timeUniform = gl.getUniformLocation(windProg, "uTime");
 
         //---------------------particle for rain------------------------------------------------
-        windProg = gl.createProgram();
-        gl.attachShader(windProg, getShader(gl, "perlin-vs") );
-        gl.attachShader(windProg, getShader(gl, "perlin-fs") );
-        gl.linkProgram(windProg);
+        rainProg = gl.createProgram();
+        gl.attachShader(rainProg, getShader(gl, "rain-vs") );
+        gl.attachShader(rainProg, getShader(gl, "rain-fs") );
+        gl.linkProgram(rainProg);
 
-        if (!gl.getProgramParameter(windProg, gl.LINK_STATUS)) {
-            alert("Could not initialize wind shader.");
+        if (!gl.getProgramParameter(rainProg, gl.LINK_STATUS)) {
+            alert("Could not initialize rain shader.");
         }
-        gl.useProgram(windProg);
+        gl.useProgram(rainProg);
 
-        windProg.vertexPositionAttribute = gl.getAttribLocation(windProg, "aVertexPosition");
-        windProg.samplerWaterUniform = gl.getUniformLocation(windProg, "uSamplerWater");
-        windProg.samplerPermUniform = gl.getUniformLocation(windProg, "uSamplerPerm");
-        windProg.samplerGradUniform = gl.getUniformLocation(windProg, "uSamplerGrad");
-        windProg.timeUniform = gl.getUniformLocation(windProg, "uTime");
-        //windProg.pMatrixUniform = gl.getUniformLocation(windProg, "uPMatrix");
-        //windProg.mvMatrixUniform = gl.getUniformLocation(windProg, "uMVMatrix");
+        rainProg.vertexPositionAttribute = gl.getAttribLocation(rainProg, "aVertexPosition");
+        rainProg.pMatrixUniform = gl.getUniformLocation(rainProg, "uPMatrix");
+        rainProg.mvMatrixUniform = gl.getUniformLocation(rainProg, "uMVMatrix");
+
 
         //----------------------quad debug shader----------------------------------------------
         quadProg = gl.createProgram();
@@ -470,6 +486,8 @@
         gl.useProgram(godrayProg);
 
         godrayProg.vertexPositionAttribute = gl.getAttribLocation(godrayProg, "aVertexPosition");
+        godrayProg.textureCoordAttribute = gl.getAttribLocation(godrayProg, "aTexcoord");
+        
         godrayProg.mvMatrixUniform = gl.getUniformLocation(godrayProg, "uMVMatrix");
         godrayProg.pMatrixUniform = gl.getUniformLocation(godrayProg, "uPMatrix");
         godrayProg.lightMatrixUniform = gl.getUniformLocation(godrayProg, "uLightMatrix");
@@ -846,9 +864,7 @@ function drawScene() {
 
         //initObjs();
     }
-    if(parameters.Wind == true) isWindy = true;
-    else isWindy = false;
-  
+
     if(parameters.Pool_Pattern == "white brick" && currentPoolPattern != "white brick"){
         initTexture(pool.Texture, "tile/tile3.jpg");
         currentPoolPattern = "white brick";
@@ -866,10 +882,11 @@ function drawScene() {
         currentPoolPattern = "golden tile";
     }
 
-    drawDepth();
+    drawDepth(colorTexture,depthTexture, 0);   //depth from light
+    drawDepth(colorTexture2, depthTexture2, 1);   //depth from camera
     drawGodrayPass1();
-    drawGodrayPass2();
-    drawGodrayPass3();
+    //drawGodrayPass2();
+    //drawGodrayPass3();
     drawPool();
     drawSkyBox();
     if(isSphere == 1) drawObj(sphere);
@@ -884,17 +901,31 @@ function drawScene() {
    // console.log("new center: "+ vec3.str(sphere.center));
     sphere.oldcenter = vec3.create(sphere.center);
     drawCaustic();
-    if(isWindy){
+    if(parameters.Wind == true){
        drawWind();
     }
-
-    //g_particleSystem.draw(viewProjection, g_world, viewInverse);
+    
+    if(parameters.Rain == true && rainCounter % 50==0){
+        for (var i = 0; i < 20; i++) {
+            var x = Math.random() * 2 - 1;
+            var y = Math.random() * 2 - 1;
+            drawHeight(x,y, 0.01, (i & 1) ? 0.01 : -0.01);
+         }
+    }
+    rainCounter ++;
+    // var viewProjection = g_math.mulMatrixMatrix4(g_view, g_projection);
+    // var viewInverse = g_math.inverse4(g_view);
+    // //g_particleSystem.draw(viewProjection, g_world, viewInverse);
     if(parameters.Depth_From_Light == true){
-        drawQuad();   //this is the debug draw ctmp for depth texture
+        drawQuad(godrayTextureA);   //this is the debug draw ctmp for depth texture
+        //drawGodrayPass1();
+    }
+    else if(parameters.Depth_From_Camera == true){
+        drawQuad(depthTexture2);
     }
 }
 
-function drawQuad(){
+function drawQuad(texture){
   //  gl.viewport(0, 0, textureSize1, textureSize1);
      gl.useProgram(quadProg);
 
@@ -907,7 +938,7 @@ function drawQuad(){
     gl.enableVertexAttribArray(quadProg.textureCoordAttribute);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(quadProg.samplerDepthUniform, 0);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
@@ -959,9 +990,11 @@ function drawPool(){
     setMatrixUniforms(poolProg);
     gl.uniformMatrix4fv(poolProg.nmlMatrixUniform, false, nmlMatrix);
     gl.uniformMatrix4fv(poolProg.lightMatrixUniform, false, lightMatrix);
+     gl.uniformMatrix4fv(poolProg.lightProjUniform, false, lightProj);
     gl.uniform1f(poolProg.sphereRadiusUniform, sphere.radius);
     gl.uniform3fv(poolProg.sphereCenterUniform, sphere.center);
     gl.uniform1f(poolProg.causticOnUniform, u_CausticOnLocation);
+    gl.uniform1i(poolProg.isSphereUniform, isSphere);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pool.IBO);
     gl.drawElements(gl.TRIANGLES, pool.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1119,6 +1152,7 @@ function drawWater(){
             
             gl.activeTexture(gl.TEXTURE3);
             gl.bindTexture(gl.TEXTURE_2D, water.TextureC);
+            gl.uniform1i(waterProg[i].samplerCausticUniform,3);
             
             gl.uniform1f(waterProg[i].causticOnUniform, u_CausticOnLocation);
 
@@ -1136,10 +1170,12 @@ function drawWater(){
       
 }
 
-function drawHeight(x,y){   //TextureA as input, TextureB as output
+function drawHeight(x,y, radius, strength){   //TextureA as input, TextureB as output
 
         x = x || 0;
         y = y || 0;
+        radius = radius||0.03;
+        strength = strength||0.01;
         
         initColorFrameBuffer(water.TextureB, textureSize, textureSize);
         //resize viewport
@@ -1154,6 +1190,8 @@ function drawHeight(x,y){   //TextureA as input, TextureB as output
 
       //  setMatrixUniforms(heightProg);
         gl.uniform2f(heightProg.centerUniform, x, y);
+        gl.uniform1f(heightProg.radiusUniform, radius);
+        gl.uniform1f(heightProg.strengthUniform, strength);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, water.TextureA);
@@ -1197,8 +1235,11 @@ function drawCaustic(){
         gl.uniform1i(causticProg.samplerWaterUniform,0);
 
         gl.uniform1i(causticProg.OESderivativesUniform, OES_standard_derivatives);
+         gl.uniform1i(causticProg.isSphereUniform, isSphere);
         gl.uniform1f(causticProg.sphereRadiusUniform, sphere.radius);
         gl.uniform3fv(causticProg.sphereCenterUniform, sphere.center);
+        gl.uniformMatrix4fv( causticProg.lightMatrixUniform, false, lightMatrix);
+         gl.uniformMatrix4fv( causticProg.lightProjUniform,false, lightProj);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, water.IBO);
         gl.drawElements(gl.TRIANGLES, water.IBO.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1335,8 +1376,8 @@ function drawInteraction(){
 
 }
 
-function drawDepth(){   //draw depth from light source
-    initDepthFrameBuffer(colorTexture, depthTexture, gl.viewportWidth, gl.viewportHeight);
+function drawDepth(colTexture, depTexture, mode){   //draw depth from light source
+    initDepthFrameBuffer(colTexture, depTexture, gl.viewportWidth, gl.viewportHeight);
 
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -1344,19 +1385,20 @@ function drawDepth(){   //draw depth from light source
     gl.useProgram(depthProg);
 
     var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-<<<<<<< HEAD
+    lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
 
-    
-=======
->>>>>>> 0cc034b7c6e0d15925d9471fb25976764389bd92
     mat4.identity(lightMatrix);
     mat4.multiply(lightMatrix, lightView);
   //  mat4.inverse(lightMatrix);
-   // gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
-   //  gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix); 
-    gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
-    gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix); 
+    if(mode == 0){
+      
+        gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, lightProj);
+        gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, lightMatrix); 
+    }
+    else if(mode ==1){
+         gl.uniformMatrix4fv(depthProg.pMatrixUniform, false, pMatrix);
+         gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, mvMatrix); 
+    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
     gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
@@ -1432,42 +1474,41 @@ function drawWind(){
 }
 
 function drawGodrayPass1(){
-    initColorFrameBuffer(godrayTextureA, textureSize1, textureSize1);
+    initColorFrameBuffer(godrayTextureA, gl.viewportWidth, gl.viewportHeight);
 
-    gl.viewport(0, 0, textureSize1, textureSize1);
+    //gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
     
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    //godrayProg.vertexPositionAttribute = gl.getAttribLocation(godrayProg, "aTexcoord");
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
+    gl.vertexAttribPointer(godrayProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(godrayProg.textureCoordAttribute);
     
     setMatrixUniforms(godrayProg);
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture2);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 1.0);
+    gl.uniform1f(godrayProg.passUniform, 1.0);
     
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
+    gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
     
     gl.disableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(godrayProg.textureCoordAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
    // reset viewport
    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-   gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-   gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+   //gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+   //gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 }
 function drawGodrayPass2(){
     initColorFrameBuffer(godrayTextureB, textureSize1, textureSize1);
@@ -1475,30 +1516,29 @@ function drawGodrayPass2(){
     gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
     
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
+    gl.vertexAttribPointer(godrayProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(godrayProg.textureCoordAttribute);
+    
     setMatrixUniforms(godrayProg);
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, godrayTextureB);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 2.0);
+    gl.uniform1f(godrayProg.passUniform, 2.0);
     
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
+    gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
     
     gl.disableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(godrayProg.textureCoordAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -1513,30 +1553,29 @@ function drawGodrayPass3(){
     gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
     
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad.VBO);
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
+    gl.vertexAttribPointer(godrayProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(godrayProg.textureCoordAttribute);
+    
     setMatrixUniforms(godrayProg);
-    var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
-    var lightProj = mat4.ortho(-1,1,-1,1,-2,2);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
-
-    mat4.identity(lightMatrix);
-    mat4.multiply(lightMatrix, lightView);
-    mat4.inverse(lightMatrix);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, godrayTextureA);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 3.0);
+    gl.uniform1f(godrayProg.passUniform, 3.0);
     
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
+    gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
     
     gl.disableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(godrayProg.textureCoordAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -1545,26 +1584,48 @@ function drawGodrayPass3(){
    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 }
-//o3djs.require('o3djs.math');
-//o3djs.require('o3djs.quaternions');
-//o3djs.require('o3djs.particles');
 
 
-function initRain() {
-    var emitter = g_particleSystem.createParticleEmitter();
-    emitter.setTranslation(200, 200, 0);
-    emitter.setState(o3djs.particles.ParticleStateIds.BLEND);
-    emitter.setColorRamp(
-        [0.2, 0.2, 1, 1]);
-    emitter.setParameters({
-        numParticles: 80,
-        lifeTime: 2,
-        timeRange: 2,
-        startSize: 5,
-        endSize: 5,
-        positionRange: [100, 0, 100],
-        velocity: [0,-150,0]});
+function pseudoRandom() {
+    var g_randSeed = 0;
+    var g_randRange = Math.pow(2, 32);
+    return (g_randSeed = (134775813 * g_randSeed + 1) % g_randRange) /
+            g_randRange;
 }
+
+
+
+// o3djs.require('o3djs.math');
+// o3djs.require('o3djs.quaternions');
+// o3djs.require('o3djs.particles');
+
+
+
+// var g_particleSystem;
+// var g_world;
+// var g_projection;
+// var g_view;
+
+// function initRain() {
+//     g_math = o3djs.math;
+//     g_world = g_math.matrix4.identity();
+//     g_view = g_math.matrix4.identity();
+//     g_projection = g_math.matrix4.identity();
+//     g_particleSystem = new o3djs.particles.ParticleSystem(gl, null, pseudoRandom);
+//     var emitter = g_particleSystem.createParticleEmitter();
+//     emitter.setTranslation(200, 200, 0);
+//     emitter.setState(o3djs.particles.ParticleStateIds.BLEND);
+//     emitter.setColorRamp(
+//         [0.2, 0.2, 1, 1]);
+//     emitter.setParameters({
+//         numParticles: 80,
+//         lifeTime: 2,
+//         timeRange: 2,
+//         startSize: 5,
+//         endSize: 5,
+//         positionRange: [100, 0, 100],
+//         velocity: [0,-150,0]});
+// }
 
 function initColorFrameBuffer(texture, width, height){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
@@ -1715,6 +1776,8 @@ function webGLStart() {
    water.TextureC = gl.createTexture();
    depthTexture = gl.createTexture();
    colorTexture = gl.createTexture();
+   depthTexture2 = gl.createTexture();
+   colorTexture2 = gl.createTexture();
    permTexture = gl.createTexture();
    gradTexture = gl.createTexture();
    godrayTextureA = gl.createTexture();
@@ -1724,15 +1787,16 @@ function webGLStart() {
   initCustomeTexture(water.TextureA, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureB, gl.RGBA, filter, gl.FLOAT, textureSize, textureSize);
   initCustomeTexture(water.TextureC, gl.RGBA, filter, gl.FLOAT, textureSize2, textureSize2);   //caustic texture is 1024x1024
-  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);    
-  //initCustomeTexture(depthTexture, gl.RGBA, filter, gl.FLOAT, textureSize1, textureSize1); 
-<<<<<<< HEAD
-  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
-  initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
-  initCustomeTexture(godrayTextureB, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
-=======
-  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
->>>>>>> 0cc034b7c6e0d15925d9471fb25976764389bd92
+  initCustomeTexture(depthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
+  initCustomeTexture(colorTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight); 
+  initCustomeTexture(depthTexture2, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
+  initCustomeTexture(colorTexture2, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);   
+  
+
+
+  initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
+  initCustomeTexture(godrayTextureB, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
+
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);
 
@@ -1766,7 +1830,7 @@ initCustomeTexture( gradTexture, gl.RGB, gl.NEAREST, gl.UNSIGNED_BYTE, 16, 1, gr
 
    initSkyBoxTexture(); 
 
-    
+  //  initRain();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);

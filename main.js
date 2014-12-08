@@ -489,6 +489,8 @@
         gl.useProgram(godrayProg);
 
         godrayProg.vertexPositionAttribute = gl.getAttribLocation(godrayProg, "aVertexPosition");
+        godrayProg.textureCoordAttribute = gl.getAttribLocation(godrayProg, "aTexcoord");
+        
         godrayProg.mvMatrixUniform = gl.getUniformLocation(godrayProg, "uMVMatrix");
         godrayProg.pMatrixUniform = gl.getUniformLocation(godrayProg, "uPMatrix");
         godrayProg.lightMatrixUniform = gl.getUniformLocation(godrayProg, "uLightMatrix");
@@ -901,8 +903,8 @@ function drawScene() {
     drawDepth(colorTexture,depthTexture, 0);   //depth from light
     drawDepth(colorTexture2, depthTexture2, 1);   //depth from camera
     drawGodrayPass1();
-    drawGodrayPass2();
-    drawGodrayPass3();
+    //drawGodrayPass2();
+    //drawGodrayPass3();
     drawPool();
     drawSkyBox();
     if(isSphere == 1) drawObj(sphere);
@@ -933,7 +935,8 @@ function drawScene() {
     // var viewInverse = g_math.inverse4(g_view);
     // //g_particleSystem.draw(viewProjection, g_world, viewInverse);
     if(parameters.Depth_From_Light == true){
-        drawQuad(depthTexture);   //this is the debug draw ctmp for depth texture
+        drawQuad(godrayTextureA);   //this is the debug draw ctmp for depth texture
+        //drawGodrayPass1();
     }
     else if(parameters.Depth_From_Camera == true){
         drawQuad(depthTexture2);
@@ -1494,36 +1497,41 @@ function drawWind(){
 }
 
 function drawGodrayPass1(){
-    initColorFrameBuffer(godrayTextureA, textureSize1, textureSize1);
+    initColorFrameBuffer(godrayTextureA, gl.viewportWidth, gl.viewportHeight);
 
-    gl.viewport(0, 0, textureSize1, textureSize1);
+    //gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
     
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    //godrayProg.vertexPositionAttribute = gl.getAttribLocation(godrayProg, "aTexcoord");
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
+    gl.vertexAttribPointer(godrayProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(godrayProg.textureCoordAttribute);
     
     setMatrixUniforms(godrayProg);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture2);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 1.0);
+    gl.uniform1f(godrayProg.passUniform, 1.0);
     
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
+    gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
     
     gl.disableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(godrayProg.textureCoordAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
    // reset viewport
-   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-   gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-   gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+   //gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+   //gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 }
 function drawGodrayPass2(){
     initColorFrameBuffer(godrayTextureB, textureSize1, textureSize1);
@@ -1531,24 +1539,29 @@ function drawGodrayPass2(){
     gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
     
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
-
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
+    gl.vertexAttribPointer(godrayProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(godrayProg.textureCoordAttribute);
+    
+    setMatrixUniforms(godrayProg);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, godrayTextureB);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 2.0);
+    gl.uniform1f(godrayProg.passUniform, 2.0);
     
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
+    gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
     
     gl.disableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(godrayProg.textureCoordAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -1563,23 +1576,29 @@ function drawGodrayPass3(){
     gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
     
-    gl.bindBuffer(gl.ARRAY_BUFFER, objModel.VBO(0));
+    gl.bindBuffer(gl.ARRAY_BUFFER,quad.VBO);
     gl.vertexAttribPointer(godrayProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(godrayProg.vertexPositionAttribute);
     
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad.TBO);
+    gl.vertexAttribPointer(godrayProg.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(godrayProg.textureCoordAttribute);
+    
+    setMatrixUniforms(godrayProg);
     gl.uniformMatrix4fv(godrayProg.pMatrixUniform, false, lightProj);
     gl.uniformMatrix4fv(godrayProg.lightMatrixUniform, false, lightMatrix);    //model view matrix is from light
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, godrayTextureA);
-    gl.uniform1i(poolProg.samplerInputUniform, 0);
+    gl.uniform1i(godrayProg.samplerInputUniform, 0);
     
-    gl.uniform1f(poolProg.passUniform, 3.0);
+    gl.uniform1f(godrayProg.passUniform, 3.0);
     
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, objModel.IBO(0));
-    gl.drawElements(gl.TRIANGLES, objModel.numIndices(0), gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
+    gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
     
     gl.disableVertexAttribArray(godrayProg.vertexPositionAttribute);
+    gl.disableVertexAttribArray(godrayProg.textureCoordAttribute);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -1799,8 +1818,8 @@ function webGLStart() {
   initCustomeTexture(objTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize, textureSize);
 
 
-  initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
-  initCustomeTexture(godrayTextureB, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, textureSize1, textureSize1);
+  initCustomeTexture(godrayTextureA, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
+  initCustomeTexture(godrayTextureB, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
 
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);
