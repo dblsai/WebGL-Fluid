@@ -247,25 +247,25 @@
         //if ( 0.0 <= iters && uv.y < 1.0 ) 
         col += linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
 		uv += stepv;
-
+        float damp = 1.0;
 		//if ( 1.0 <= iters && uv.y < 1.0 ) 
-        col += linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
+        col += damp*linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
 		uv += stepv;
-
+        damp -= 0.1;
 		//if ( 2.0 <= iters && uv.y < 1.0 ) 
-        col += linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
+        col += damp*linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
 		uv += stepv;
 
 		//if ( 3.0 <= iters && uv.y < 1.0 ) 
-        col += linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
+        col += damp*linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
 		uv += stepv;
 
 		//if ( 4.0 <= iters && uv.y < 1.0 ) 
-        col += linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
+        col += damp*linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
 		uv += stepv;
 
 		//if ( 5.0 <= iters && uv.y < 1.0 ) 
-        col += linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
+        col += damp*linearizeDepth(texture2D( uSamplerInput, uv ).r, 1.0, 10.0);
 		uv += stepv;
         //float depth = linearizeDepth( texture2D( uSamplerInput, uv ).r, 0.5, 5.0 );
         gl_FragColor = vec4( col/TAPS_PER_PASS );
@@ -842,10 +842,10 @@
     void main (void)
     {
 
-      float depth = texture2D( uSamplerDepth, vCoord).x;
+      //float depth = texture2D( uSamplerDepth, vCoord).x;
       //depth = linearizeDepth( depth, 0.5, 5.0 );
       //depth = vCoord.x;
-      gl_FragColor = vec4(texture2D( uSamplerDepth, vCoord).xyz,1.0);
+     // gl_FragColor = vec4(texture2D( uSamplerDepth, vCoord).xyz,1.0);
       //gl_FragColor = vec4(vec3(vCoord.x), 1.0)
        //pack(gl_FragCoord.z);
 
@@ -1034,7 +1034,7 @@
       //depth = linearizeDepth( depth, 0.5, 5.0 );
       //depth = vCoord.x;
       vec4 godrayColor = vec4(0.0);
-      if((texture2D(uSamplerGodray, vCoord).r) > 0.5) godrayColor = vec4( vec3(-0.15*texture2D(uSamplerGodray, vCoord).r), 0.0);
+      if((texture2D(uSamplerGodray, vCoord).r) > 0.0) godrayColor = vec4( vec3(-0.15*texture2D(uSamplerGodray, vCoord).r), 0.0);
       gl_FragColor = vec4(texture2D(uSamplerColor, vCoord).xyz, 1.0) - godrayColor;
       //gl_FragColor = vec4(vec3(vCoord.x), 1.0)
        //pack(gl_FragCoord.z);

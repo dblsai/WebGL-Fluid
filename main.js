@@ -944,7 +944,7 @@ function drawScene() {
         initTexture(pool.Texture, "tile/tile5.jpg");
         currentPoolPattern = "golden tile";
     }
-    if(isSphere == 0){
+    //if(isSphere == 0){
         var lightView = mat4.lookAt(lightInvDir, vec3.create([0,0,0]), vec3.create([0,1,0]));  //from the point of view of the light
         lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
         mat4.identity(lightMatrix);
@@ -969,7 +969,7 @@ function drawScene() {
             mat4.multiply(reflectModelView, reflectView);
             drawDepth(colorTexture3, depthTexture3, reflectModelView, reflectProj, true, 1);    //color from the point of reflections
       // }
-    }
+    //}
     drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, false);   //depth from camera
     drawGodrayPass1();
     drawGodrayPass2();
@@ -1020,7 +1020,7 @@ function drawScene() {
         //drawGodrayPass1();
     }
     else if(parameters.Depth_From_Camera == true){
-        drawQuad(depthTexture2, 1);
+
         
     }
     if(parameters.God_rays == true){
