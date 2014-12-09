@@ -223,7 +223,7 @@
     var parameters = new function(){
         this.Caustic = true;
 
-        this.Object = "sphere";
+        this.Object = "duck";
         this.Pool_Pattern = "white brick";
         this.Sphere_Radius = 0.25;        
         this.Wind = true;
@@ -989,7 +989,13 @@ function drawScene() {
       // }
 
    // }
-    drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, depthModel, false);   //depth from camera
+    if(isSphere == 1){
+        drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, sphere, false);   //depth from camera
+    }
+    else{
+        drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, depthModel, false);   //depth from camera
+    }
+    
     drawGodrayPass1();
     drawGodrayPass2();
     drawGodrayPass3();
@@ -1970,7 +1976,7 @@ function webGLStart() {
   initBuffers(sphere, sphereObj);
   initBuffers(water, planeWater);
   initBuffers(quad, screenQuad);
-  sphere.center = vec3.create([0.0,-0.65,0.0]);
+  sphere.center = vec3.create([0.0,1.0,0.0]);
   sphere.oldcenter = vec3.create(sphere.center);
   sphere.radius = sphereObj.radius;
 
