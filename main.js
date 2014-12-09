@@ -956,7 +956,7 @@ function drawScene() {
         lightProj = mat4.ortho(-2,2,-2,2,-4,4);  //axis-aligned box (-10,10),(-10,10),(-10,20) on the X,Y and Z axes
         mat4.identity(lightMatrix);
         mat4.multiply(lightMatrix, lightView);
-        drawDepth(colorTexture,depthTexture, lightMatrix, lightProj, false);   //depth from light
+        drawDepth(colorTexture,depthTexture, lightMatrix, lightProj,depthModel, false);   //depth from light
         initTracer();
         var ray = vec3.create();
         var cam = vec3.create(tracer.eye);
@@ -985,11 +985,11 @@ function drawScene() {
             var reflectView = mat4.lookAt(point, sphere.center, upVector);   //[eye, center, up]
             mat4.identity(reflectModelView);
             mat4.multiply(reflectModelView, reflectView);
-            drawDepth(colorTexture3, depthTexture3, reflectModelView, reflectProj, true, 1);    //color from the point of reflections
+            drawDepth(colorTexture3, depthTexture3, reflectModelView, reflectProj, depthModel, true, 1);    //color from the point of reflections
       // }
 
    // }
-    drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, false);   //depth from camera
+    drawDepth(colorTexture2, depthTexture2, mvMatrix, pMatrix, depthModel, false);   //depth from camera
     drawGodrayPass1();
     drawGodrayPass2();
     drawGodrayPass3();
@@ -1036,8 +1036,9 @@ function drawScene() {
     
     if(parameters.Depth_From_Light == true){
        // drawQuad(depthTexture,0)
+       drawQuad(finaldepthTexture, 0);
        // drawQuad(godrayTextureA, 0);   //this is the debug draw ctmp for depth texture
-        drawQuad(godrayTextureA, 1);   //this is the debug draw ctmp for depth texture
+       // drawQuad(godrayTextureA, 1);   //this is the debug draw ctmp for depth texture
         //drawGodrayPass1();
     }
     else if(parameters.Depth_From_Camera == true){
@@ -1084,7 +1085,7 @@ function drawQuad(texture, mode){
 
 function drawPool(){
 
-    if(parameters.God_rays == true) initColorFrameBuffer(finalrenderTexture, gl.viewportWidth, gl.viewportHeight);
+    if(parameters.God_rays == true) initFrameBuffer(finalrenderTexture, null, gl.viewportWidth, gl.viewportHeight);
     //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   //  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1153,7 +1154,7 @@ function drawPool(){
 }
 
 function drawSkyBox() {
-    if(parameters.God_rays == true) initColorFrameBuffer(finalrenderTexture, gl.viewportWidth, gl.viewportHeight);
+    if(parameters.God_rays == true) initFrameBuffer(finalrenderTexture, null, gl.viewportWidth, gl.viewportHeight);
     if (sky.Texture){
         gl.useProgram(skyProg);
       
@@ -1181,7 +1182,7 @@ function drawSkyBox() {
 
 function drawObj(model){
 
-        if(parameters.God_rays == true) initColorFrameBuffer(finalrenderTexture, gl.viewportWidth, gl.viewportHeight);
+        if(parameters.God_rays == true) initFrameBuffer(finalrenderTexture, finaldepthTexture, gl.viewportWidth, gl.viewportHeight);
 
          gl.useProgram(objProg);
          gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -1263,7 +1264,7 @@ function drawObj(model){
 }
 
 function drawPost(){
-    initColorFrameBuffer(postrenderTexture, gl.viewportWidth, gl.viewportHeight);
+    initFrameBuffer(postrenderTexture, null, gl.viewportWidth, gl.viewportHeight);
     gl.useProgram(postProg);
     
      gl.bindBuffer(gl.ARRAY_BUFFER, quad.VBO);
@@ -1282,6 +1283,7 @@ function drawPost(){
     gl.bindTexture(gl.TEXTURE_2D, finalrenderTexture);
     gl.uniform1i(postProg.samplerColorUniform, 1);
 
+
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quad.IBO);
     gl.drawElements(gl.TRIANGLES, quad.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
@@ -1293,7 +1295,7 @@ function drawPost(){
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 function drawWater(){
-        if(parameters.God_rays == true) initColorFrameBuffer(finalrenderTexture, gl.viewportWidth, gl.viewportHeight);
+        if(parameters.God_rays == true) initFrameBuffer(finalrenderTexture, finaldepthTexture, gl.viewportWidth, gl.viewportHeight);
         gl.enable(gl.CULL_FACE);
          gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LESS);
@@ -1365,8 +1367,6 @@ function drawWater(){
        
         }
         gl.disable(gl.CULL_FACE);
-
-      
 }
 
 function drawHeight(x,y, radius, strength){   //TextureA as input, TextureB as output
@@ -1376,7 +1376,7 @@ function drawHeight(x,y, radius, strength){   //TextureA as input, TextureB as o
         radius = radius||0.03;
         strength = strength||0.01;
         
-        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
+        initFrameBuffer(water.TextureB, null, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1420,7 +1420,7 @@ function drawHeight(x,y, radius, strength){   //TextureA as input, TextureB as o
 
 function drawCaustic(){
        
-        initColorFrameBuffer(water.TextureC, textureSize2, textureSize2);
+        initFrameBuffer(water.TextureC, null, textureSize2, textureSize2);
 
         gl.viewport(0, 0, textureSize2, textureSize2);
         gl.useProgram(causticProg);
@@ -1454,7 +1454,7 @@ function drawCaustic(){
 }
 
 function drawNormal(){
-        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
+        initFrameBuffer(water.TextureB, null, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1493,7 +1493,7 @@ function drawNormal(){
 
 function drawSimulation(){
 
-        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
+        initFrameBuffer(water.TextureB, null, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1533,7 +1533,7 @@ function drawSimulation(){
 
 function drawInteraction(){
 
-        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
+        initFrameBuffer(water.TextureB, null, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1575,9 +1575,9 @@ function drawInteraction(){
 
 }
 
-function drawDepth(colTexture, depTexture, modelView, proj, renderColor, mode){   //draw depth from light source
+function drawDepth(colTexture, depTexture, modelView, proj, model, renderColor, mode){   //draw depth from light source
     mode = mode || 0;
-    initDepthFrameBuffer(colTexture, depTexture, gl.viewportWidth, gl.viewportHeight);
+    initFrameBuffer(colTexture, depTexture, gl.viewportWidth, gl.viewportHeight);
 
     gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -1588,19 +1588,19 @@ function drawDepth(colTexture, depTexture, modelView, proj, renderColor, mode){ 
     gl.uniformMatrix4fv(depthProg.mvMatrixUniform, false, modelView); 
 
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.VBO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, model.VBO);
     gl.vertexAttribPointer(depthProg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(depthProg.vertexPositionAttribute);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, depthModel.NBO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, model.NBO);
     gl.vertexAttribPointer(depthProg.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(depthProg.vertexNormalAttribute);
         
     gl.uniform3fv(depthProg.centerUniform, sphere.center);
     gl.uniform1i(depthProg.modeUniform, mode);
 
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, depthModel.IBO);
-    gl.drawElements(gl.TRIANGLES,depthModel.IBO.numItems, gl.UNSIGNED_SHORT, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.IBO);
+    gl.drawElements(gl.TRIANGLES, model.IBO.numItems, gl.UNSIGNED_SHORT, 0);
 
 
      //-------------- after rendering---------------------------------------------------
@@ -1622,7 +1622,7 @@ function drawDepth(colTexture, depTexture, modelView, proj, renderColor, mode){ 
 
 function drawWind(){
 
-        initColorFrameBuffer(water.TextureB, textureSize, textureSize);
+        initFrameBuffer(water.TextureB,null, textureSize, textureSize);
         //resize viewport
         gl.viewport(0, 0, textureSize, textureSize);
 
@@ -1673,7 +1673,7 @@ function drawWind(){
 }
 
 function drawGodrayPass1(){
-    initColorFrameBuffer(godrayTextureA, gl.viewportWidth, gl.viewportHeight);
+    initFrameBuffer(godrayTextureA, null, gl.viewportWidth, gl.viewportHeight);
 
     //gl.viewport(0, 0, textureSize1, textureSize1);
     gl.useProgram(godrayProg);
@@ -1710,7 +1710,7 @@ function drawGodrayPass1(){
    //gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 }
 function drawGodrayPass2(){
-    initColorFrameBuffer(godrayTextureB, gl.viewportWidth, gl.viewportHeight);
+    initFrameBuffer(godrayTextureB, null, gl.viewportWidth, gl.viewportHeight);
 
     gl.useProgram(godrayProg);
     
@@ -1746,7 +1746,7 @@ function drawGodrayPass2(){
    //gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 }
 function drawGodrayPass3(){
-    initColorFrameBuffer(godrayTextureA, gl.viewportWidth, gl.viewportHeight);
+    initFrameBuffer(godrayTextureA,null, gl.viewportWidth, gl.viewportHeight);
 
     
     gl.useProgram(godrayProg);
@@ -1785,7 +1785,7 @@ function drawGodrayPass3(){
 
 function drawReflect(model){
    // console.log("drawing reflection");
-    initColorFrameBuffer(reflectTexture, textureSize, textureSize);
+    initFrameBuffer(reflectTexture, null, textureSize, textureSize);
    // gl.viewport(0, 0, textureSize, textureSize);
     gl.useProgram(godrayProg);
    // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1862,7 +1862,7 @@ function pseudoRandom() {
 //         velocity: [0,-150,0]});
 // }
 
-function initColorFrameBuffer(texture, width, height){   // rendering to a texture
+function initFrameBuffer(coltexture, deptexture, width, height){   // rendering to a texture
     framebuffer = framebuffer || gl.createFramebuffer();
     renderbuffer = renderbuffer || gl.createRenderbuffer();
 
@@ -1878,38 +1878,13 @@ function initColorFrameBuffer(texture, width, height){   // rendering to a textu
       gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
     }
     
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, coltexture, 0);
+     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, deptexture, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
       alert("Color Framebuffer is not working.");
     }
 
 }
-
-function initDepthFrameBuffer(coltexture, deptexture, width, height){   // rendering to a texture
-    framebuffer1 = framebuffer1 || gl.createFramebuffer();
-    //renderbuffer1 = renderbuffer1 || gl.createRenderbuffer();
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer1);
-   // gl.bindRenderbuffer(gl.NDERBUFFER, renderbuffer1);
-  //gl.bindFramebuffer(gl.RENDERBUFFER, null);
-
-    framebuffer.width = width;
-    framebuffer.height = height;
-
-    // if (width!= renderbuffer1.width ||height!= renderbuffer1.height) {
-    //   renderbuffer1.width = width;
-    //   renderbuffer1.height = height;
-    //   gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-    // }
-    
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, coltexture, 0);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, deptexture, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
-      alert("Depth Framebuffer is not working.");
-    }
-
-}
-
 
 
 function registerAsyncObj( gl, asyncObj ){
@@ -2020,6 +1995,7 @@ function webGLStart() {
    godrayTextureB = gl.createTexture();
 
    objTexture = gl.createTexture();
+   finaldepthTexture = gl.createTexture();
    finalrenderTexture = gl.createTexture();
    postrenderTexture = gl.createTexture();
 
@@ -2043,7 +2019,7 @@ function webGLStart() {
   initCustomeTexture(godrayTextureB, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
   initCustomeTexture(finalrenderTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
   initCustomeTexture(postrenderTexture, gl.RGBA, gl.NEAREST, gl.UNSIGNED_BYTE, gl.viewportWidth, gl.viewportHeight);
-
+  initCustomeTexture(finaldepthTexture, gl.DEPTH_COMPONENT, gl.NEAREST, gl.UNSIGNED_SHORT, gl.viewportWidth, gl.viewportHeight);  
   var successA = checkCanDrawToTexture(water.TextureA);
   var successB = checkCanDrawToTexture(water.TextureB);
 
