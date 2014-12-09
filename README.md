@@ -107,6 +107,7 @@ As you can see, as more simulation shader added into the pipeline, the performan
 But all the fps is above 60, which means our WebGL Water is truly fast and real-time. 
 
 ![Analysis](/pics/pa.jpg)
+
 Obj mesh interaction: not much influence
 -bounding sphere, not ray traced
 
