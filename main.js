@@ -349,6 +349,7 @@
             waterProg[i].causticOnUniform = gl.getUniformLocation(waterProg[i], "uCausticOn");
             waterProg[i].isSphereUniform = gl.getUniformLocation(waterProg[i], "uIsSphere");
             waterProg[i].drawObjReflectUniform = gl.getUniformLocation(waterProg[i], "uDrawObjReflect");
+ 
         }
 
         //-----------------------height------------------------------------------------
@@ -1294,6 +1295,8 @@ function drawPost(){
 function drawWater(){
         if(parameters.God_rays == true) initColorFrameBuffer(finalrenderTexture, gl.viewportWidth, gl.viewportHeight);
         gl.enable(gl.CULL_FACE);
+         gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LESS);
         //gl.clear(gl.DEPTH_BUFFER_BIT);
         //gl.enable(gl.DEPTH_TEST);
         for(var i=0 ;i<2; i++){  
@@ -1357,12 +1360,12 @@ function drawWater(){
 
             gl.uniform3fv(waterProg[i].eyePositionUniform, eye);
 
-
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); 
        
         }
         gl.disable(gl.CULL_FACE);
+
       
 }
 
@@ -1872,7 +1875,7 @@ function initColorFrameBuffer(texture, width, height){   // rendering to a textu
     if (width!= renderbuffer.width ||height!= renderbuffer.height) {
       renderbuffer.width = width;
       renderbuffer.height = height;
-     // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
     }
     
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);

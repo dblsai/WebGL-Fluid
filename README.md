@@ -32,9 +32,13 @@ Here we simplify the computation process by making some assumptions:
 
 for each point we calculate two refract rays, one is using vertical normal and the other is using the real normal. And we get the caustic value by compare the two refract rays, Then write the caustic value to the caustic map.
 
-* **Obj Interaction**   
+* **Obj Interaction** 
+Use bounding sphere to interaction with water, without triangle test, so that performance is maintained fast and realtime.    
+![Mouse](/pics/obj.gif)
+
 * **God Ray**  
-Volumetric light scattering due to shadows
+Volumetric light scattering due to shadows  
+
 * **Wind**   
 Use Perlin noise as a noise texture to change water height based on noise.  
 
@@ -83,9 +87,10 @@ Load the obj by Threejs obj loader, then shade it by diffuse BRDF.
 
 
 * **Obj Shadow**    
-This is done by a Shadow Map(depth texture) that is rendered a from the point of view of light. 
+As triangle test is very expensive in the shader, we use Shadow Map technique instead of raytraced shadow.  
+This is done by rendering a depth texture a from the point of view of light. 
 Then in the shader, transform vertex into the light view space, determine shadow by the following rule
-`if(position.z > depth) ---> part of shadow`    
+`if(position.z > depth) ---> part of shadow`      
 ![ObjShadow](/pics/objShadow.png) 
 
 * **Obj Reflection & Refraction**  
@@ -93,6 +98,7 @@ This can be turn on under GUI `debug image` under `draw_obj_reflect`. The idea i
 to render a reflection texture from the point of view of reflection point, and use this texture for shading the water.  
 Now the reflection and refraction positions are not right, to be fixed in the future.    
 ![ObjReflection](/pics/objReflection.png)  
+
 * **God Rays**  
 God rays is a Volumetric light scattering effect due to shadows. To implement this effect we take depth information as input and blurs a mask generated from the depth map along radial lines emanating from the light source. 
 ![ObjReflection](/pics/godray.jpg)  
