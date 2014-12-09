@@ -34,7 +34,7 @@ for each point we calculate two refract rays, one is using vertical normal and t
 
 * **Obj Interaction**   
 * **God Ray**  
-
+Volumetric light scattering due to shadows
 * **Wind**   
 Use Perlin noise as a noise texture to change water height based on noise.  
 
@@ -93,8 +93,9 @@ This can be turn on under GUI `debug image` under `draw_obj_reflect`. The idea i
 to render a reflection texture from the point of view of reflection point, and use this texture for shading the water.  
 Now the reflection and refraction positions are not right, to be fixed in the future.    
 ![ObjReflection](/pics/objReflection.png)  
-
-
+* **God Rays**  
+God rays is a Volumetric light scattering effect due to shadows. To implement this effect we take depth information as input and blurs a mask generated from the depth map along radial lines emanating from the light source. 
+![ObjReflection](/pics/godray.jpg)  
  
 
 PERFORMANCE EVALUATION   
@@ -103,7 +104,16 @@ PERFORMANCE EVALUATION
 ![Analysis](/pics/Analysis.png)
 
 As you can see, as more simulation shader added into the pipeline, the performance evetually drops. 
-But all the fps is above 60, which means our WebGL Water is truly fast and real-time.  
+But all the fps is above 60, which means our WebGL Water is truly fast and real-time. 
+
+![Analysis](/pics/pa.jpg)
+Obj mesh interaction: not much influence
+-bounding sphere, not ray traced
+
+God rays: Drop down FPS by 30
+	-3 passes, write to texture
+	-6 samples each pass
+
 
 INTERACTION
 -------------------------------------------------------------------------------
