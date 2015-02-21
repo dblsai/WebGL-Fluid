@@ -1,8 +1,9 @@
 WebGL-Interactive-Fluid
 ==================================================
 
-This project requires advanced graphics card together with a WebGL capable browser. 
+The basic feature of this project is based on Evan Wallace's work: http://madebyevan.com/webgl-water/
 
+This project requires advanced graphics card together with a WebGL capable browser. 
 Please also ensure that you have below WebGL extensions, `OES_texture_float`, `OES_texture_float_linear`, `WEBGL_depth_texture`, 
 `OES_standard_derivatives`.  
 Recommendation is to use latest Firefox / Chrome running on GPU.
