@@ -1,7 +1,7 @@
 WebGL-Interactive-Fluid
 ==================================================
 
-The basic feature of this project is based on Evan Wallace's work: http://madebyevan.com/webgl-water/
+The basic feature of this project is inspired by Evan Wallace's work: http://madebyevan.com/webgl-water/
 
 This project requires advanced graphics card together with a WebGL capable browser. 
 Please also ensure that you have below WebGL extensions, `OES_texture_float`, `OES_texture_float_linear`, `WEBGL_depth_texture`, 
