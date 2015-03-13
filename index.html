@@ -1014,6 +1014,7 @@
     
 <script id="postprocess-fs" type="x-shader/x-fragment">
     precision highp float;
+   // uniform mat4 uInverseMatrix; //inverse mvp matrix
     uniform sampler2D uSamplerGodray;
     uniform sampler2D uSamplerColor;
     varying vec2 vCoord;
@@ -1027,6 +1028,10 @@
       //depth = vCoord.x;
       vec4 godrayColor = vec4(0.0);
       if((texture2D(uSamplerGodray, vCoord).r) > 0.0) godrayColor = vec4( vec3(-0.15*texture2D(uSamplerGodray, vCoord).r), 0.0);
+      // float x = gl_FragCoord.x * 2.0 / 1080.0 - 1.0;
+      // float y = -gl_FragCoord.y * 2.0 / 720.0 + 1.0;
+      // vec4 point2D = vec4(x,y,0.0,1.0);
+      // vec4 point3D = uInverseMatrix * point2D;
       gl_FragColor = vec4(texture2D(uSamplerColor, vCoord).xyz, 1.0) - godrayColor;
       //gl_FragColor = vec4(vec3(vCoord.x), 1.0)
        //pack(gl_FragCoord.z);
@@ -1045,7 +1050,8 @@
           </td>
 
           <td align="left" valign="top" style="position:absolute;left:1080px;padding:20px;">
-              <h1><strong>WebGL Interactive Water</strong></h1> <br>
+              <h1><strong>WebGL Water</strong></h1> <br>
+              Inspired from Evan Wallace's <a href = "http://madebyevan.com/webgl-water/" target = "_blank">work</a>  <br>
               <a href = "http://www.bingludu.com" target = "_blank"><strong>Binglu's Website</strong></a>  <br>
               <a href = "http://www.maxinjie.com/ " target = "_blank"><strong>Xinjie's Website</strong></a> <br>
               <a href = "https://github.com/dblsai/WebGL-Fluid" target = "_blank"><strong>View Source</strong></a> <br>
